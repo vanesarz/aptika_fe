@@ -3,7 +3,7 @@ import axios from "axios";
 const REMOTE_API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://aptika-be.wasmer.dev/api";
 const LOCAL_API_URL =
-  process.env.NEXT_PUBLIC_API_URL_LOCAL || "http://localhost:8000/api";
+  process.env.NEXT_PUBLIC_API_URL_LOCAL || "http://localhost:8001/api";
 
 // Otomatis: dibuka lewat localhost -> backend lokal; selain itu (online) -> backend online.
 const resolveBaseUrl = () => {

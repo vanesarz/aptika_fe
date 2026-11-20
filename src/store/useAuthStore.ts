@@ -22,6 +22,7 @@ export interface UserProfile {
   phone?: string;
   avatar_url?: string;
   role: string;
+  is_magang?: boolean;
 }
 
 interface AuthState {

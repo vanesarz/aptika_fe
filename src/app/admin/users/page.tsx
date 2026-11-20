@@ -2,16 +2,19 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { isAxiosError } from "axios";
 import {
   getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, getBidangs,
 } from "@/services/api";
 import { api } from "@/services/api";
 import { showToast } from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { SalinLinkPendaftaranMagang } from "@/components/magang/SalinLinkPendaftaranMagang";
 import Avatar from "@/components/ui/Avatar";
 import {
-  Plus, Pencil, Trash2, Search, Filter, Eye, EyeOff,
-  UserCog, Wifi, WifiOff, RefreshCw, Users,
+  Plus, Pencil, Trash2, Search, Filter, Eye,
+  UserCog, Wifi, WifiOff, RefreshCw, Users, GraduationCap,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -25,6 +28,8 @@ interface User {
   position?: string;
   phone?: string;
   is_active: number;
+  is_magang?: boolean;
+  avatar_url?: string;
   bidang_id?: number;
   bidang?: { id: number; name: string; code: string };
 }
@@ -40,7 +45,7 @@ interface ActiveSession {
   created_at: string;
 }
 
-type TabType = "users" | "sessions";
+type TabType = "staff" | "magang" | "sessions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -94,9 +99,9 @@ export default function AdminUsersPage() {
   const { user: authUser, bidang, isAdminAptika } = useAuthStore();
   const isSuperAdmin =
     isAdminAptika ||
-    (authUser?.role === "admin" && (bidang?.code === "APTIKA" || (authUser as any)?.bidang_id === 3));
+    (authUser?.role === "admin" && (bidang?.code === "APTIKA" || (authUser as { bidang_id?: number } | null)?.bidang_id === 3));
 
-  const [activeTab, setActiveTab] = useState<TabType>("users");
+  const [activeTab, setActiveTab] = useState<TabType>("staff");
 
   // Users State
   const [users, setUsers]     = useState<User[]>([]);
@@ -163,20 +168,35 @@ export default function AdminUsersPage() {
     const token = localStorage.getItem("token");
     const u     = JSON.parse(localStorage.getItem("user") || "{}");
     if (!token || u?.role !== "admin") { router.replace("/"); return; }
+    // Fetch initial server data after the client-side authentication check.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers();
   }, [fetchUsers, router]);
 
   useEffect(() => {
+    // Load server sessions when their tab is opened.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (activeTab === "sessions") fetchSessions();
   }, [activeTab, fetchSessions]);
 
   // ── Filtering ──────────────────────────────────────────────────────────────
 
-  const filteredUsers = users.filter((u) => {
+  const staffUsers = users.filter((u) => !u.is_magang);
+  const magangUsers = users.filter((u) => u.is_magang);
+  const tabUsers = activeTab === "magang" ? magangUsers : staffUsers;
+  const categoryLabel = activeTab === "magang" ? "peserta magang" : "staf/karyawan";
+  const changeTab = (tab: TabType) => {
+    setActiveTab(tab);
+    setSearch("");
+    setFilterBidang("");
+    setFilterRole("");
+  };
+
+  const filteredUsers = tabUsers.filter((u) => {
     const q = search.toLowerCase();
     const matchSearch  = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.position ?? "").toLowerCase().includes(q);
     const matchBidang  = !filterBidang || String(u.bidang_id) === filterBidang;
-    const matchRole    = !filterRole   || u.role === filterRole;
+    const matchRole    = activeTab === "magang" || !filterRole || u.role === filterRole;
     return matchSearch && matchBidang && matchRole;
   });
 
@@ -205,7 +225,7 @@ export default function AdminUsersPage() {
     }
     setSubmitting(true);
     try {
-      const payload: Record<string, string | number> = {
+      const payload: Parameters<typeof createAdminUser>[0] & { bidang_id: number } = {
         name: formName, email: formEmail, role: formRole,
         bidang_id: Number(formBidangId), is_active: Number(formIsActive),
         position: formPosition, phone: formPhone,
@@ -213,16 +233,16 @@ export default function AdminUsersPage() {
       if (formPassword) payload.password = formPassword;
 
       if (editingUser) {
-        await updateAdminUser(editingUser.id, payload as any);
+        await updateAdminUser(editingUser.id, payload);
         showToast.success("Data pengguna berhasil diperbarui.");
       } else {
-        await createAdminUser(payload as any);
+        await createAdminUser(payload);
         showToast.success("Akun pengguna baru berhasil dibuat.");
       }
       setShowFormModal(false);
       fetchUsers();
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || "Gagal menyimpan data.";
+    } catch (e: unknown) {
+      const msg = (isAxiosError<{ message?: string }>(e) && e.response?.data?.message) || "Gagal menyimpan data.";
       showToast.error(msg);
     } finally {
       setSubmitting(false);
@@ -295,22 +315,37 @@ export default function AdminUsersPage() {
         </p>
       </div>
 
-      {/* Tabs (Super Admin only shows sessions tab) */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800/60 pb-0">
-        <button
-          onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 -mb-px ${
-            activeTab === "users"
-              ? "border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-          }`}
-        >
-          <Users size={14} />
-          Daftar Pengguna
-        </button>
+      {/* Account categories use the account marker, independently of role/email. */}
+      <div role="tablist" aria-label="Kategori pengguna" className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 dark:border-slate-800/60">
+        {([
+          { key: "staff", label: "Staf/Karyawan", count: staffUsers.length, icon: Users },
+          { key: "magang", label: "Peserta Magang", count: magangUsers.length, icon: GraduationCap },
+        ] as const).map(({ key, label, count, icon: Icon }) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={activeTab === key}
+            aria-controls="admin-user-panel"
+            id={`tab-${key}`}
+            onClick={() => changeTab(key)}
+            className={`flex shrink-0 items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 -mb-px ${
+              activeTab === key
+                ? "border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5"
+                : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+            }`}
+          >
+            <Icon size={14} />
+            {label}
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{loading ? "…" : count}</span>
+          </button>
+        ))}
         {isSuperAdmin && (
           <button
-            onClick={() => setActiveTab("sessions")}
+            role="tab"
+            aria-selected={activeTab === "sessions"}
+            aria-controls="admin-session-panel"
+            id="tab-sessions"
+            onClick={() => changeTab("sessions")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 -mb-px ${
               activeTab === "sessions"
                 ? "border-red-500 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/5"
@@ -324,8 +359,29 @@ export default function AdminUsersPage() {
       </div>
 
       {/* ── TAB: USERS ── */}
-      {activeTab === "users" && (
-        <div className="space-y-4">
+      {activeTab !== "sessions" && (
+        <div role="tabpanel" id="admin-user-panel" aria-labelledby={`tab-${activeTab}`} className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              { label: activeTab === "magang" ? "Akun peserta magang" : "Akun staf/karyawan", count: tabUsers.length },
+              { label: "Akun aktif", count: tabUsers.filter((u) => u.is_active).length },
+              { label: "Akun nonaktif", count: tabUsers.filter((u) => !u.is_active).length },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-[#0b1630]">
+                <p className="text-xs text-slate-500">{stat.label}</p>
+                <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-white">{loading ? "…" : stat.count}</p>
+              </div>
+            ))}
+          </div>
+          {activeTab === "magang" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-xs text-blue-800 dark:border-blue-500/25 dark:bg-blue-500/10 dark:text-blue-200">
+              <p>Akun peserta dibuat setelah approval mentor. Pendaftaran dan proses magang dikelola melalui dashboard magang.</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link href="/magang/dashboard" className="font-bold underline underline-offset-4">Buka dashboard magang</Link>
+                <SalinLinkPendaftaranMagang />
+              </div>
+            </div>
+          )}
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Search */}
@@ -353,23 +409,23 @@ export default function AdminUsersPage() {
             </div>
 
             {/* Filter Role */}
-            <select
+            {activeTab === "staff" && <select
               value={filterRole} onChange={(e) => setFilterRole(e.target.value)}
               className="px-3 py-2 text-xs rounded-xl bg-white dark:bg-[#0b1630] border border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-300 focus:outline-none focus:border-red-500/40 appearance-none shadow-sm cursor-pointer"
             >
               <option value="">Semua Role</option>
               <option value="admin">Admin</option>
               <option value="user">User</option>
-            </select>
+            </select>}
 
-            {/* Add Button */}
-            <button
+            {/* Participant accounts are provisioned through mentor approval. */}
+            {activeTab === "staff" && <button
               onClick={openAddModal}
               className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-red-500 hover:bg-red-600 text-white transition-all shadow-md shadow-red-500/20"
             >
               <Plus size={14} />
-              Tambah Pengguna
-            </button>
+              Tambah Staf/Karyawan
+            </button>}
           </div>
 
           {/* Table */}
@@ -387,12 +443,12 @@ export default function AdminUsersPage() {
                   {loading ? (
                     <tr><td colSpan={6} className="text-center py-12 text-slate-400">Memuat data...</td></tr>
                   ) : filteredUsers.length === 0 ? (
-                    <tr><td colSpan={6} className="text-center py-12 text-slate-400">Tidak ada pengguna ditemukan.</td></tr>
+                    <tr><td colSpan={6} className="text-center py-12 text-slate-400">Tidak ada {categoryLabel} ditemukan.</td></tr>
                   ) : filteredUsers.map((u) => (
                     <tr key={u.id} className="border-b border-slate-100 dark:border-slate-800/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/20 transition-colors">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <Avatar name={u.name} size="sm" />
+                          <Avatar src={u.avatar_url} name={u.name} size="sm" />
                           <div>
                             <p className="font-semibold text-slate-800 dark:text-slate-200">{u.name}</p>
                             <p className="text-slate-500 text-[10px]">{u.email}</p>
@@ -448,7 +504,7 @@ export default function AdminUsersPage() {
             <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800/60 bg-slate-50/50 dark:bg-transparent flex items-center justify-between">
               <p className="text-xs text-slate-500">
                 Menampilkan <span className="text-slate-800 dark:text-slate-400 font-semibold">{filteredUsers.length}</span> dari{" "}
-                <span className="text-slate-800 dark:text-slate-400 font-semibold">{users.length}</span> pengguna
+                <span className="text-slate-800 dark:text-slate-400 font-semibold">{tabUsers.length}</span> {categoryLabel}
               </p>
               <button onClick={fetchUsers} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors">
                 <RefreshCw size={12} />
@@ -461,7 +517,7 @@ export default function AdminUsersPage() {
 
       {/* ── TAB: ACTIVE SESSIONS ── */}
       {activeTab === "sessions" && isSuperAdmin && (
-        <div className="bg-white dark:bg-[#0b1630] border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-sm transition-colors duration-200">
+        <div role="tabpanel" id="admin-session-panel" aria-labelledby="tab-sessions" className="bg-white dark:bg-[#0b1630] border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-sm transition-colors duration-200">
           <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800/60 bg-slate-50/50 dark:bg-transparent flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">Sesi Login Aktif</h3>
@@ -615,7 +671,7 @@ export default function AdminUsersPage() {
                 {impersonateTarget.bidang && ` — Bidang ${impersonateTarget.bidang.name}`}
               </p>
               <p className="text-[10px] text-cyan-600 dark:text-cyan-400/70 mt-1 font-medium">
-                Token impersonasi berlaku selama 2 jam. Klik "Admin Panel" di header untuk kembali.
+                Token impersonasi berlaku selama 2 jam. Klik &quot;Admin Panel&quot; di header untuk kembali.
               </p>
             </div>
             <div className="flex gap-3">

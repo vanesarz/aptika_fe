@@ -429,13 +429,13 @@ export default function Sidebar() {
       icon: Database,
       iconColor: "text-cyan-600 bg-cyan-50 border border-cyan-200/60",
     },
-  ];
+  ].filter(item => !user?.is_magang || ("key" in item && ["magang", "manajementugasdigital"].includes(item.key || "")));
 
   const handleTeamClick = (key: string) => {
     runGuardedNavigation(() => {
       setOpenMobile(false);
       if (key === "dashboard") {
-        router.push("/dashboard");
+        router.push(user?.is_magang ? "/magang/dashboard" : "/dashboard");
       } else if (key === "administrasisurat" || key === "manajementugasdigital" || key === "smki" || key === "daftar-aset-ti" || key === "master" || key.includes("/")) {
         router.push(`/${key}`);
       } else {
@@ -509,7 +509,7 @@ export default function Sidebar() {
               <div className="flex items-center justify-between w-full">
                 <div
                   className="cursor-pointer flex-grow animate-in fade-in duration-200"
-                  onClick={() => runGuardedNavigation(() => router.push("/dashboard"))}
+                  onClick={() => runGuardedNavigation(() => router.push(user?.is_magang ? "/magang/dashboard" : "/dashboard"))}
                 >
                   <h1 className="text-[15px] font-extrabold tracking-wide uppercase text-[#0b2146] dark:text-white">
                     Aptika Tools

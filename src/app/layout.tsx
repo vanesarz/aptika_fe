@@ -1,3 +1,4 @@
+import { MagangAccessGuard } from "@/components/magang/MagangAccessGuard";
 import type { Metadata } from "next";
 import "./globals.css";
 import ToastProvider from "@/components/ui/Toast";
@@ -19,7 +20,7 @@ export default function RootLayout({
       <body className="antialiased bg-[#f8fafc] text-slate-800" suppressHydrationWarning>
         <QueryProvider>
           <ThemeProvider>
-            {children}
+            <MagangAccessGuard>{children}</MagangAccessGuard>
             <ToastProvider />
           </ThemeProvider>
         </QueryProvider>

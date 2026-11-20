@@ -1,11 +1,11 @@
 import { NextResponse, NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
   const { pathname } = request.nextUrl;
 
   // Define public paths
-  const isPublicPath = pathname === "/login" || pathname === "/" || pathname.startsWith("/form-perubahan-it");
+  const isPublicPath = pathname === "/login" || pathname === "/" || pathname === "/daftar-magang" || pathname.startsWith("/form-perubahan-it");
   
   // Static assets, public resources, and favicon bypass
   if (
@@ -37,6 +37,7 @@ export const config = {
   matcher: [
     "/",
     "/login",
+    "/daftar-magang",
     "/dashboard",
     "/dashboard/:path*",
     "/spd/:path*",

@@ -15,6 +15,7 @@ import {
   Cloud,
   CheckCircle2,
 } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore";
 import { login } from "@/services/api";
 
 export default function LoginPage() {
@@ -45,7 +46,8 @@ export default function LoginPage() {
         JSON.stringify(data.user || data?.data?.user || { name: "User APTIKA Tools" })
       );
       document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-      router.push("/dashboard");
+      await useAuthStore.getState().fetchProfile();
+      router.push((data.user || data?.data?.user)?.is_magang ? "/magang/dashboard" : "/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || "Username/email atau password salah.");
     } finally {

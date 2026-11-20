@@ -22,6 +22,7 @@ export default function Header({ title, subtitle, showBrand = false }: HeaderPro
   const router = useRouter();
   const pathname = usePathname() || "";
   const { currentUser, loadCurrentUser } = useTaskStore();
+  const isMagang = useAuthStore(state => !!state.user?.is_magang);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export default function Header({ title, subtitle, showBrand = false }: HeaderPro
   }, [loadCurrentUser]);
 
   const userName = currentUser?.name || "User";
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = !isMagang && currentUser?.role === "admin";
 
   const handleLogout = () => runGuardedNavigation(async () => {
     try { 
@@ -68,7 +69,7 @@ export default function Header({ title, subtitle, showBrand = false }: HeaderPro
     { label: "IKI Report", path: "/integrasiinteroperabilitas/dashboard", icon: <TrendingUp size={15} /> },
     { label: "SMKI", path: "/smki", icon: <ShieldCheck size={15} /> },
     { label: "Data Master", path: "/master", icon: <Database size={15} /> },
-  ];
+  ].filter(item => !isMagang || item.path === "/magang/dashboard" || item.path === "/manajementugasdigital");
 
   const profileMenuItems = [
     ...(isAdmin
@@ -99,7 +100,7 @@ export default function Header({ title, subtitle, showBrand = false }: HeaderPro
       {showBrand ? (
         <div
           className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0"
-          onClick={() => runGuardedNavigation(() => router.push("/dashboard"))}
+          onClick={() => runGuardedNavigation(() => router.push(isMagang ? "/magang/dashboard" : "/dashboard"))}
           title="Kembali ke Beranda"
         >
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0b2146] via-[#163868] to-[#1d4ed8] flex items-center justify-center text-white font-extrabold text-sm shadow-md group-hover:scale-105 transition-transform">

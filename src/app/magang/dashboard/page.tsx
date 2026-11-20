@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Users, UserCheck, Eye, Edit, Pencil, Trash2, Plus, Printer, Upload, Download, FileText, Search, RotateCcw, GraduationCap, ClipboardList, CheckCircle2, Award } from "lucide-react";
-import { getMagangList, deleteMagang, createMagang, updateMagang, uploadMagangNda, getBidangs } from "@/services/api";
+import { createPortal } from "react-dom";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import axios from "axios";
+import { useEffect, useRef, useState } from "react";
+import { Users, UserCheck, Eye, Edit, Pencil, Trash2, Plus, Printer, Upload, Download, FileText, Search, RotateCcw, GraduationCap, ClipboardList, CheckCircle2, Award, ArrowDownRight } from "lucide-react";
+import { getMagangList, deleteMagang, updateMagang, uploadMagangNda, getBidangs } from "@/services/api";
+import { IdentitasMagangFields, emptyIdentitasMagang, appendIdentitasMagang } from "@/components/magang/IdentitasMagangFields";
+import { FormPendaftaranMagang } from "@/components/magang/FormPendaftaranMagang";
 import { Modal } from "@/components/ui/Modal";
+import { MagangDetailPeserta } from "@/components/magang/MagangDetailPeserta";
+import { SalinLinkPendaftaranMagang } from "@/components/magang/SalinLinkPendaftaranMagang";
+import { SortMagang, sortMagang } from "@/components/magang/sortMagang";
 import { useAuthStore } from "@/store/useAuthStore";
 
 const formatDate = (dateString: string) => {
@@ -60,15 +68,7 @@ const formatIndonesianFullDateText = (dateString: string) => {
   return `${dayName} tanggal ${dayWords} Bulan ${monthName} tahun ${yearWords} (${dayNum} ${monthName} ${yearNum})`;
 };
 
-const isSertifikatEligible = (tglSelesai: string) => {
-  if (!tglSelesai) return false;
-  const cleanStr = tglSelesai.includes("T") ? tglSelesai.split("T")[0] : tglSelesai;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const end = new Date(cleanStr + "T00:00:00");
-  end.setHours(0, 0, 0, 0);
-  return today.getTime() >= end.getTime();
-};
+const escapePrintHtml = (value: string) => value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
 const formatCertificatePeriod = (tglMulaiStr: string, tglSelesaiStr: string) => {
   if (!tglMulaiStr || !tglSelesaiStr) return "-";
@@ -159,7 +159,7 @@ function MagangIllustration() {
 }
 
 export default function MagangDashboard() {
-  const { bidang: authBidang, isAdminAptika } = useAuthStore();
+  const { user: authUser, bidang: authBidang, isAdminAptika } = useAuthStore();
   const [magangs, setMagangs] = useState<any[]>([]);
   const [bidangs, setBidangs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,31 +208,14 @@ export default function MagangDashboard() {
   };
 
   const handlePrintCertificate = async (item: any) => {
-    if (!isSertifikatEligible(item.tgl_selesai)) {
-      alert(`Sertifikat belum dapat dicetak. Tanggal selesai magang adalah ${formatDate(item.tgl_selesai)}.`);
+    if (!item.dinilai_at) {
+      alert("Selesaikan penilaian peserta sebelum mencetak draf sertifikat.");
       return;
     }
-
-    if (item.sertifikat !== "Sudah menerima") {
-      try {
-        const payload = new FormData();
-        payload.append("nama", item.nama);
-        payload.append("nama_kampus", item.nama_kampus);
-        payload.append("tgl_mulai_magang", item.tgl_mulai);
-        payload.append("tgl_selesai_magang", item.tgl_selesai);
-        payload.append("sertifikat", "Sudah menerima");
-        if (item.keterangan) payload.append("keterangan", item.keterangan);
-
-        await updateMagang(item.id, payload);
-        fetchData();
-      } catch (e) {
-        console.error("Gagal memperbarui status sertifikat", e);
-      }
-    }
+    item = Object.fromEntries(Object.entries(item).map(([key, value]) => [key, typeof value === "string" ? escapePrintHtml(value) : value]));
 
     const periodText = formatCertificatePeriod(item.tgl_mulai, item.tgl_selesai);
     const logoUrl = typeof window !== "undefined" ? window.location.origin + "/logo-jabar.png" : "/logo-jabar.png";
-    const esignLogoUrl = typeof window !== "undefined" ? window.location.origin + "/logo-esign.png" : "/logo-esign.png";
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -532,7 +515,7 @@ export default function MagangDashboard() {
         <div class="cert-container">
 
           <div>
-            <h1 class="header-title">Sertifikat</h1>
+            <h1 class="header-title">Draf Sertifikat</h1>
             <p class="header-subtitle">Diberikan kepada :</p>
             <div class="recipient-name">${item.nama}</div>
             <div class="cert-body">
@@ -543,12 +526,9 @@ export default function MagangDashboard() {
           <div class="footer-section">
 
             <div class="esign-box">
-              <img src="${esignLogoUrl}" class="esign-icon" alt="Logo E-Sign" />
               <div class="esign-text">
-                <div class="header-esign">Ditandatangani secara elektronik oleh:</div>
-                <div class="title-esign">KEPALA DINAS KOMUNIKASI DAN INFORMATIKA<br>PROVINSI JAWA BARAT</div>
-                <div class="signer-name">MAS ADI KOMAR, S.STP., M.Tr.A.P.</div>
-                <div class="signer-rank">Pembina Tk.I</div>
+                <div class="title-esign">DRAF BELUM DISAHKAN</div>
+                <p>Memerlukan nomor resmi dan pengesahan pejabat berwenang.</p>
               </div>
             </div>
 
@@ -590,28 +570,12 @@ export default function MagangDashboard() {
 
 
 
-  // Melacak ID anak magang yang sudah mencetak NDA
-  const [printedNdaIds, setPrintedNdaIds] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("printed_nda_ids");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed.map(String);
-        } catch (e) { }
-      }
-    }
-    return [];
-  });
-
-  const availableMagangs = magangs.filter(
-    (m) => !printedNdaIds.includes(String(m.id))
-  );
-
-
+  const availableMagangs = magangs.filter(m => m.status_seleksi === "diterima");
 
   // Form state
   const [formData, setFormData] = useState({
+    alasan_perubahan: "",
+    ...emptyIdentitasMagang,
     nama: "",
     nama_kampus: "",
     bidang_id: "",
@@ -622,22 +586,7 @@ export default function MagangDashboard() {
   });
   const [cvFile, setCvFile] = useState<File | null>(null);
 
-  // Compute status magang otomatis berdasarkan tanggal
-  const computeStatusMagang = (tglMulai: string, tglSelesai: string) => {
-    if (!tglMulai || !tglSelesai) return "-";
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const start = new Date(tglMulai);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(tglSelesai);
-    end.setHours(0, 0, 0, 0);
-
-    if (today < start) return "Belum mulai";
-    if (today > end) return "Selesai magang";
-    return "Sedang magang";
-  };
-
-  const currentStatus = computeStatusMagang(formData.tgl_mulai_magang, formData.tgl_selesai_magang);
+  const currentStatus = selectedMagang?.status_magang || "Menunggu seleksi";
 
   const fetchData = async () => {
     setLoading(true);
@@ -647,8 +596,7 @@ export default function MagangDashboard() {
         getBidangs().catch(() => ({ data: [] })),
       ]);
       if (resMagang?.data) {
-        const sorted = [...resMagang.data].sort((a: any, b: any) => (a.id || 0) - (b.id || 0));
-        setMagangs(sorted);
+        setMagangs(resMagang.data);
       }
       if (resBidang?.data) {
         setBidangs(resBidang.data);
@@ -664,19 +612,21 @@ export default function MagangDashboard() {
     fetchData();
   }, []);
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Apakah anda yakin ingin menghapus data ini?")) {
-      try {
-        await deleteMagang(id);
-        const updatedPrintedIds = printedNdaIds.filter((printedId) => printedId !== String(id));
-        setPrintedNdaIds(updatedPrintedIds);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("printed_nda_ids", JSON.stringify(updatedPrintedIds));
-        }
-        fetchData();
-      } catch (error) {
-        alert("Gagal menghapus data");
-      }
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; nama: string; user_id?: number } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const handleDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteMagang(deleteTarget.id);
+      setDeleteTarget(null);
+      await fetchData();
+    } catch (error) {
+      setDeleteError(axios.isAxiosError(error) ? error.response?.data?.message || "Gagal menghapus data. Silakan coba lagi." : "Gagal menghapus data. Silakan coba lagi.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -685,32 +635,25 @@ export default function MagangDashboard() {
     setSelectedMagang(data || null);
     if (data && mode !== "add") {
       setFormData({
+        alasan_perubahan: "",
+        ...emptyIdentitasMagang,
+        nim: data.nim || "", jurusan: data.jurusan || "", email: data.email || "",
+        telepon: data.telepon || "", alamat: data.alamat || "", memiliki_laptop: !!data.memiliki_laptop,
         nama: data.nama || "",
         nama_kampus: data.nama_kampus || "",
         bidang_id: data.bidang_id ? String(data.bidang_id) : (data.bidang?.id ? String(data.bidang.id) : (authBidang?.id ? String(authBidang.id) : "")),
-        tgl_mulai_magang: data.tgl_mulai || "",
-        tgl_selesai_magang: data.tgl_selesai || "",
+        tgl_mulai_magang: data.tgl_mulai?.slice(0, 10) || "",
+        tgl_selesai_magang: data.tgl_selesai?.slice(0, 10) || "",
         sertifikat: data.sertifikat || "Belum menerima",
         keterangan: data.keterangan || "",
       });
-      setCvFile(null);
-    } else {
-      setFormData({
-        nama: "",
-        nama_kampus: "",
-        bidang_id: authBidang?.id ? String(authBidang.id) : "",
-        tgl_mulai_magang: "",
-        tgl_selesai_magang: "",
-        sertifikat: "Belum menerima",
-        keterangan: "",
-      });
-      setCvFile(null);
     }
+    setCvFile(null);
     setIsModalOpen(true);
   };
 
   const handleOpenNdaModal = () => {
-    const unprinted = magangs.filter((m) => !printedNdaIds.includes(String(m.id)));
+    const unprinted = availableMagangs;
     setNdaFormData({
       magangId: unprinted.length > 0 ? String(unprinted[0].id) : "",
       tanggal: new Date().toISOString().split("T")[0],
@@ -729,31 +672,21 @@ export default function MagangDashboard() {
   const handlePrintNda = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ndaFormData.magangId) {
-      alert("Silakan pilih nama anak magang terlebih dahulu.");
+      alert("Silakan pilih nama peserta magang terlebih dahulu.");
       return;
     }
 
-    const selected = magangs.find((m) => String(m.id) === String(ndaFormData.magangId));
+    const rawSelected = magangs.find((m) => String(m.id) === String(ndaFormData.magangId));
+    const selected = rawSelected ? Object.fromEntries(Object.entries(rawSelected).map(([key, value]) => [key, typeof value === "string" ? escapePrintHtml(value) : value])) : null;
     if (!selected) {
-      alert("Data anak magang tidak ditemukan.");
+      alert("Data peserta magang tidak ditemukan.");
       return;
     }
 
-    const selectedIndex = magangs.findIndex((m) => String(m.id) === String(ndaFormData.magangId));
-    const seqNumber = String(selectedIndex >= 0 ? selectedIndex + 7 : 7).padStart(2, "0");
+    if (selected.status_seleksi !== "diterima") { alert("Peserta harus diterima sebelum mencetak NDA."); return; }
     const fullDateText = formatIndonesianFullDateText(ndaFormData.tanggal);
-    const dateObj = new Date(ndaFormData.tanggal + "T00:00:00");
-    const yearNum = isNaN(dateObj.getTime()) ? new Date().getFullYear() : dateObj.getFullYear();
-    const generatedNomorSurat = `NO: ${seqNumber}/NDA/APTIKA/${yearNum}`;
+    const generatedNomorSurat = String(selected.nomor_nda || "DRAF BELUM DISAHKAN");
     const logoUrl = typeof window !== "undefined" ? window.location.origin + "/logo-jabar.png" : "/logo-jabar.png";
-
-    // Tandai anak magang ini sudah selesai mencetak NDA (dihapus dari list dropdown)
-    const updatedPrintedIds = Array.from(new Set([...printedNdaIds, String(selected.id)]));
-    setPrintedNdaIds(updatedPrintedIds);
-
-    if (typeof window !== "undefined") {
-      localStorage.setItem("printed_nda_ids", JSON.stringify(updatedPrintedIds));
-    }
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -877,13 +810,13 @@ export default function MagangDashboard() {
         </div>
 
         <div class="title-header">
-          PERJANJIAN<br>
+          <strong>DRAF — BELUM DISAHKAN</strong><br>PERJANJIAN<br>
           LARANGAN PENGUNGKAPAN DAN KERAHASIAAN<br>
           ANTARA<br>
           DINAS KOMUNIKASI DAN INFORMATIKA PROVINSI JAWA BARAT<br>
           DENGAN<br>
-          MAHASISWA MAGANG<br>
-          ${(selected.nama_kampus || "").toUpperCase()}<br>
+          PESERTA MAGANG<br>
+          ${escapePrintHtml(String(rawSelected.nama_kampus || "").toUpperCase())}<br>
           <div class="doc-no">${generatedNomorSurat}</div>
         </div>
 
@@ -896,17 +829,17 @@ export default function MagangDashboard() {
             <tr>
               <td class="label">1. Nama</td>
               <td class="colon">:</td>
-              <td>Dian Istanti, S.Sos, MAP</td>
+              <td>[Pejabat sesuai template resmi dinas]</td>
             </tr>
             <tr>
               <td class="label">&nbsp;&nbsp;&nbsp;NIP</td>
               <td class="colon">:</td>
-              <td>19690519 199803 2 001</td>
+              <td>[NIP pejabat]</td>
             </tr>
             <tr>
               <td class="label">&nbsp;&nbsp;&nbsp;Jabatan</td>
               <td class="colon">:</td>
-              <td>Kepala Bidang Aplikasi Informatika</td>
+              <td>[Jabatan sesuai kewenangan]</td>
             </tr>
           </table>
           <p style="margin-left: 0;">
@@ -919,16 +852,16 @@ export default function MagangDashboard() {
             <tr>
               <td class="label">2. Nama</td>
               <td class="colon">:</td>
-              <td>${selected.nama}</td>
+              <td>${selected.nama}<br>NIM/NIS: ${selected.nim || "-"}<br>Jurusan: ${selected.jurusan || "-"}<br>Alamat: ${selected.alamat || "-"}</td>
             </tr>
             <tr>
               <td class="label">&nbsp;&nbsp;&nbsp;Jabatan</td>
               <td class="colon">:</td>
-              <td>Mahasiswa Magang</td>
+              <td>Peserta Magang</td>
             </tr>
           </table>
           <p style="margin-left: 0;">
-            yang bertindak sebagai Mahasiswa Magang Dari ${selected.nama_kampus} untuk selanjutnya disebut Sebagian <strong>PIHAK KEDUA</strong>.
+            yang bertindak sebagai Peserta Magang Dari ${selected.nama_kampus} untuk selanjutnya disebut Sebagian <strong>PIHAK KEDUA</strong>.
           </p>
         </div>
 
@@ -1032,12 +965,12 @@ export default function MagangDashboard() {
         <div class="signature-container">
           <div class="signature-box">
             <div class="signature-title">PIHAK KESATU</div>
-            <div class="signature-role">Kepala Bidang Aplikasi Informatika,</div>
-            <div class="signature-name">Dian Istanti, S.Sos, MAP</div>
+            <div class="signature-role">[Jabatan sesuai kewenangan],</div>
+            <div class="signature-name">[Nama pejabat sesuai dokumen resmi]</div>
           </div>
           <div class="signature-box">
             <div class="signature-title">PIHAK KEDUA</div>
-            <div class="signature-role">Mahasiswa Magang,</div>
+            <div class="signature-role">Peserta Magang,</div>
             <div class="signature-name">${selected.nama}</div>
           </div>
         </div>
@@ -1058,6 +991,7 @@ export default function MagangDashboard() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedMagang) return;
 
     // Validasi file size maksimal 2MB
     if (cvFile && cvFile.size > 2 * 1024 * 1024) {
@@ -1067,6 +1001,8 @@ export default function MagangDashboard() {
 
     try {
       const payload = new FormData();
+      appendIdentitasMagang(payload, formData);
+      if (formData.alasan_perubahan) payload.append("alasan_perubahan", formData.alasan_perubahan);
       payload.append("nama", formData.nama);
       payload.append("nama_kampus", formData.nama_kampus);
 
@@ -1086,11 +1022,7 @@ export default function MagangDashboard() {
         payload.append("cv_magang", cvFile);
       }
 
-      if (modalMode === "add") {
-        await createMagang(payload);
-      } else if (modalMode === "edit" && selectedMagang) {
-        await updateMagang(selectedMagang.id, payload);
-      }
+      await updateMagang(selectedMagang.id, payload);
 
       setIsModalOpen(false);
       fetchData();
@@ -1109,9 +1041,20 @@ export default function MagangDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBidang, setFilterBidang] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterSertifikat, setFilterSertifikat] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortMagang>("terbaru");
+  const [showApplicants, setShowApplicants] = useState(false);
+  const tableHeading = useRef<HTMLHeadingElement>(null);
+  const applicants = magangs.filter(item => item.status_seleksi === "menunggu");
+  const tableData = showApplicants ? applicants : magangs;
 
-  const filteredMagangs = magangs.filter((item) => {
+  function showApplicantTable() {
+    handleResetFilter();
+    setShowApplicants(true);
+    tableHeading.current?.focus({ preventScroll: true });
+    tableHeading.current?.scrollIntoView({ block: "start" });
+  }
+
+  const filteredMagangs = sortMagang(tableData.filter((item) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchNama = (item.nama || "").toLowerCase().includes(q);
@@ -1128,21 +1071,16 @@ export default function MagangDashboard() {
       if (item.status_magang !== filterStatus) return false;
     }
 
-    if (filterSertifikat !== "all") {
-      const cert = item.sertifikat || "Belum menerima";
-      if (cert !== filterSertifikat) return false;
-    }
-
     return true;
-  });
+  }), sortBy);
 
-  const isFiltered = searchQuery.trim() !== "" || filterBidang !== "all" || filterStatus !== "all" || filterSertifikat !== "all";
+  const isFiltered = searchQuery.trim() !== "" || filterBidang !== "all" || filterStatus !== "all" || sortBy !== "terbaru";
 
   const handleResetFilter = () => {
     setSearchQuery("");
     setFilterBidang("all");
     setFilterStatus("all");
-    setFilterSertifikat("all");
+    setSortBy("terbaru");
   };
 
   const activeMagangs = magangs.filter(m => m.status_magang === 'Sedang magang').length;
@@ -1327,19 +1265,19 @@ export default function MagangDashboard() {
         </div>
       </div>
 
-      {/* ── STATISTIC CARDS (2 Metrik Elegan) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Total Anak Magang */}
+      {/* ── RINGKASAN MAGANG ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* Total Peserta Magang */}
         <div className="relative overflow-hidden bg-white/70 dark:bg-[#071733]/90 backdrop-blur-md rounded-3xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-800 hover:shadow-md hover:-translate-y-0.5 transition-all group">
           <div className="h-1.5 w-full absolute top-0 left-0 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400" />
           <div className="flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Total Mahasiswa Magang
+                Total Peserta Magang
               </span>
               <div className="mt-2 flex items-baseline gap-2.5">
-                <h3 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">{magangs.length}</h3>
-                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400">terdaftar</span>
+                <h3 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">{availableMagangs.length}</h3>
+                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400">diterima</span>
               </div>
             </div>
             <div className="w-13 h-13 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
@@ -1348,7 +1286,7 @@ export default function MagangDashboard() {
           </div>
           <p className="mt-4 text-xs text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Seluruh data peserta magang yang terdata dalam sistem
+            Peserta yang telah lolos seleksi
           </p>
         </div>
 
@@ -1362,7 +1300,7 @@ export default function MagangDashboard() {
               </span>
               <div className="mt-2 flex items-baseline gap-2.5">
                 <h3 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">{activeMagangs}</h3>
-                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400">mahasiswa</span>
+                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400">peserta</span>
               </div>
             </div>
             <div className="w-13 h-13 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
@@ -1374,10 +1312,29 @@ export default function MagangDashboard() {
             Sedang melaksanakan tugas penugasan di unit kerja
           </p>
         </div>
+        <button type="button" onClick={showApplicantTable} aria-controls="tabel-peserta-magang"
+          className={`group relative overflow-hidden rounded-3xl border bg-white/70 p-6 text-left shadow-sm backdrop-blur-md transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-[#071733]/90 ${showApplicants ? "border-blue-500" : "border-slate-200/80 dark:border-slate-800"}`}>
+          <span className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-600 via-indigo-500 to-violet-400" />
+          <span className="flex items-center justify-between gap-3">
+            <span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Pendaftar Magang</span>
+              <span className="mt-2 flex items-baseline gap-2.5">
+                <span className="text-3xl font-black leading-tight text-slate-900 dark:text-white">{applicants.length}</span>
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">menunggu seleksi</span>
+              </span>
+            </span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-400">
+              <ClipboardList size={22} />
+            </span>
+          </span>
+          <span className="mt-4 flex items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
+            Lihat daftar pendaftar <ArrowDownRight size={15} aria-hidden="true" />
+          </span>
+        </button>
       </div>
 
-      {/* ── DAFTAR ANAK MAGANG (Header + Filter + Tabel) ── */}
-      <div className="bg-white/60 dark:bg-[#071733]/80 backdrop-blur-md rounded-3xl p-6 shadow-sm border border-white/70 dark:border-slate-800">
+      {/* ── DAFTAR PESERTA MAGANG (Header + Filter + Tabel) ── */}
+      <div id="tabel-peserta-magang" className="bg-white/60 dark:bg-[#071733]/80 backdrop-blur-md rounded-3xl p-6 shadow-sm border border-white/70 dark:border-slate-800">
         {/* Header Card */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/70 dark:border-slate-800">
           <div className="flex items-center gap-3.5">
@@ -1385,20 +1342,27 @@ export default function MagangDashboard() {
               <ClipboardList size={20} />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-slate-800 dark:text-white leading-tight">Daftar Anak Magang</h2>
+              <h2 ref={tableHeading} tabIndex={-1} className="scroll-mt-28 text-base font-extrabold leading-tight text-slate-800 dark:text-white">
+                {showApplicants ? "Daftar Pendaftar Magang" : "Daftar Peserta Magang"}
+              </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Menampilkan data dan informasi anak magang
-                {isFiltered && ` (${filteredMagangs.length} dari ${magangs.length} data)`}
+                {showApplicants ? "Pendaftar yang menunggu seleksi" : "Informasi pendaftaran dan status magang"}
+                {isFiltered && ` (${filteredMagangs.length} dari ${tableData.length} data)`}
               </p>
             </div>
           </div>
-          <button
-            onClick={() => handleOpenModal("add")}
-            className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-[13px] font-semibold shadow-sm transition-all whitespace-nowrap"
-          >
-            <Plus size={16} />
-            Tambah Data Magang
-          </button>
+          <div className="relative flex items-stretch self-end rounded-xl border border-amber-400 bg-amber-50 shadow-sm sm:self-auto dark:border-amber-700 dark:bg-slate-900">
+            {!authUser?.is_magang && (
+              <button type="button" onClick={() => handleOpenModal("add")}
+                className="flex items-center gap-2 whitespace-nowrap rounded-l-[11px] bg-amber-500 px-3 py-2.5 text-[13px] font-semibold text-white transition hover:bg-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 sm:px-4">
+                <Plus size={16} />
+                Tambah Data Magang
+              </button>
+            )}
+            <div className={`flex items-center px-1 ${authUser?.is_magang ? "" : "border-l border-amber-300 dark:border-amber-700"}`}>
+              <SalinLinkPendaftaranMagang iconOnly />
+            </div>
+          </div>
         </div>
 
         {/* Filter Controls */}
@@ -1429,7 +1393,7 @@ export default function MagangDashboard() {
               ))}
             </select>
 
-            <select
+            {!showApplicants && <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               className="sm:w-[190px] px-3 py-2.5 text-[12.5px] bg-white dark:bg-[#0b1630] border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-slate-700 dark:text-slate-200 cursor-pointer"
@@ -1438,18 +1402,27 @@ export default function MagangDashboard() {
               <option value="Sedang magang">Sedang magang</option>
               <option value="Selesai magang">Selesai magang</option>
               <option value="Belum mulai">Belum mulai</option>
+              <option value="Menunggu seleksi">Menunggu seleksi</option>
+              <option value="Menunggu validasi NDA">Menunggu validasi NDA</option>
+              <option value="Ditolak">Ditolak</option>
+            </select>}
+
+            <select aria-label="Urutkan peserta magang" value={sortBy} onChange={e => setSortBy(e.target.value as SortMagang)}
+              className="sm:w-[205px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[12.5px] text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+              <option value="terbaru">Pendaftaran terbaru</option>
+              <option value="terlama">Pendaftaran terlama</option>
+              <option value="nama_az">Nama A–Z</option>
+              <option value="nama_za">Nama Z–A</option>
+              <option value="kampus_az">Kampus A–Z</option>
+              <option value="kampus_za">Kampus Z–A</option>
             </select>
 
-            <select
-              value={filterSertifikat}
-              onChange={(e) => setFilterSertifikat(e.target.value)}
-              className="sm:w-[170px] px-3 py-2.5 text-[12.5px] bg-white dark:bg-[#0b1630] border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-slate-700 dark:text-slate-200 cursor-pointer"
-            >
-              <option value="all">Semua Status Sertifikat</option>
-              <option value="Sudah menerima">Sudah menerima</option>
-              <option value="Belum menerima">Belum menerima</option>
-            </select>
-
+            {showApplicants && (
+              <button type="button" onClick={() => { handleResetFilter(); setShowApplicants(false); }}
+                className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
+                Lihat semua data
+              </button>
+            )}
             {isFiltered && (
               <button
                 onClick={handleResetFilter}
@@ -1475,27 +1448,25 @@ export default function MagangDashboard() {
                   <th className="px-3 py-3 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Bidang</th>
                   <th className="px-3 py-3 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Periode</th>
                   <th className="px-3 py-3 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Status Magang</th>
-                  <th className="px-3 py-3 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Sertifikat</th>
-                  <th className="px-3 py-3 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide text-center">NDA</th>
                   <th className="px-3 py-3 text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide text-center w-28">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-10 text-sm text-slate-500">Memuat data...</td>
+                    <td colSpan={7} className="text-center py-10 text-sm text-slate-500">Memuat data...</td>
                   </tr>
                 ) : filteredMagangs.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-10 text-sm text-slate-500">
-                      {isFiltered ? "Tidak ada data anak magang yang sesuai filter" : "Tidak ada data magang"}
+                    <td colSpan={7} className="text-center py-10 text-sm text-slate-500">
+                      {isFiltered ? "Tidak ada data yang sesuai filter" : showApplicants ? "Belum ada pendaftar yang menunggu seleksi." : "Belum ada data magang."}
                     </td>
                   </tr>
                 ) : (
                   filteredMagangs.map((item, idx) => (
                     <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-3 py-3 text-[12.5px] text-slate-700 dark:text-slate-300 font-semibold text-center">{idx + 1}</td>
-                      <td className="px-3 py-3 text-[12.5px] font-bold text-slate-800 dark:text-white max-w-[170px]">{item.nama}</td>
+                      <td className="px-3 py-3 text-[12.5px] font-bold text-slate-800 dark:text-white max-w-[170px]">{item.nama}<span className="mt-1 block text-[10px] font-normal text-slate-400">Daftar {item.created_at ? new Date(item.created_at).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short", year: "numeric" }) : "—"}</span></td>
                       <td className="px-3 py-3 text-[12px] text-slate-500 dark:text-slate-400 max-w-[170px] leading-snug">{item.nama_kampus}</td>
                       <td className="px-3 py-3">
                         {item.bidang ? (
@@ -1516,61 +1487,17 @@ export default function MagangDashboard() {
                           }`}>
                           {item.status_magang}
                         </span>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-1">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap border ${item.sertifikat === 'Sudah menerima' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-500 border-red-100'}`}>
-                            {item.sertifikat || 'Belum menerima'}
-                          </span>
-                          {isSertifikatEligible(item.tgl_selesai) && (
-                            <button
-                              onClick={() => handlePrintCertificate(item)}
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                              title="Cetak Sertifikat Magang"
-                            >
-                              <Printer size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => handleOpenNdaModalForMagang(item.id)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                            title="Cetak Surat NDA"
-                          >
-                            <FileText size={15} />
-                          </button>
-                          <button
-                            onClick={() => handleOpenUploadNdaModal(item)}
-                            className={`p-1.5 rounded-md transition-colors ${item.nda_file ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-600 hover:bg-blue-50'}`}
-                            title={item.nda_file ? "Ganti File NDA" : "Upload File NDA"}
-                          >
-                            <Upload size={15} />
-                          </button>
-                          {item.nda_file && (
-                            <a
-                              href={item.nda_file}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                              title="Unduh / Lihat Dokumen NDA"
-                            >
-                              <Download size={15} />
-                            </a>
-                          )}
-                        </div>
+
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center justify-center gap-1.5">
-                          <button onClick={() => handleOpenModal("view", item)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50/60 border border-blue-100 hover:bg-blue-100 rounded-md transition-colors" title="Lihat Detail">
+                          <button onClick={() => handleOpenModal("view", item)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50/60 border border-blue-100 hover:bg-blue-100 rounded-md transition-colors" title="Lihat Detail dan Proses Magang">
                             <Eye size={14} />
                           </button>
-                          <button onClick={() => handleOpenModal("edit", item)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50/60 border border-blue-100 hover:bg-blue-100 rounded-md transition-colors" title="Edit">
+                          <button hidden={!!authUser?.is_magang} disabled={!!item.disahkan_at || !!item.dinilai_at} onClick={() => handleOpenModal("edit", item)} className="w-7 h-7 flex items-center justify-center text-blue-600 bg-blue-50/60 border border-blue-100 hover:bg-blue-100 rounded-md transition-colors" title="Edit">
                             <Pencil size={13} />
                           </button>
-                          <button onClick={() => handleDelete(item.id)} className="w-7 h-7 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Hapus">
+                          <button hidden={!!authUser?.is_magang} disabled={deleting} onClick={() => { setDeleteError(""); setDeleteTarget(item); }} className="w-7 h-7 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Hapus">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -1584,64 +1511,38 @@ export default function MagangDashboard() {
         </div>
       </div>
 
+      {deleteTarget && createPortal(<ConfirmModal
+        isOpen={true}
+        title="Hapus peserta magang"
+        message={deleteError || `Hapus data magang ${deleteTarget.nama}? Berkas magang terkait akan dihapus.${deleteTarget.user_id ? " Akun login peserta juga akan dihapus dan sesi login dicabut." : ""}`}
+        onClose={() => { if (!deleting) { setDeleteTarget(null); setDeleteError(""); } }}
+        onConfirm={handleDelete}
+        loading={deleting}
+      />, document.body)}
+
       {/* ── MODAL FORM ── */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={modalMode === "add" ? "Tambah Data Magang" : modalMode === "edit" ? "Edit Data Magang" : "Detail Anak Magang"}
-        size="lg"
+        title={modalMode === "add" ? "Tambah Data Magang" : modalMode === "edit" ? "Edit Data Magang" : "Detail Peserta Magang"}
+        size="xl"
+        allowFullscreen={modalMode === "view"}
       >
         {modalMode === "view" && selectedMagang ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">Nama</span>
-              <span className="col-span-2 font-semibold text-slate-900">{selectedMagang.nama}</span>
-            </div>
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">Kampus</span>
-              <span className="col-span-2 font-semibold text-slate-900">{selectedMagang.nama_kampus}</span>
-            </div>
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">Bidang / Unit Kerja</span>
-              <span className="col-span-2 font-semibold text-blue-700">
-                {selectedMagang.bidang ? `${selectedMagang.bidang.name} (${selectedMagang.bidang.code})` : "-"}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">Tgl Mulai</span>
-              <span className="col-span-2 font-semibold text-slate-900">{formatDate(selectedMagang.tgl_mulai)}</span>
-            </div>
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">Tgl Selesai</span>
-              <span className="col-span-2 font-semibold text-slate-900">{formatDate(selectedMagang.tgl_selesai)}</span>
-            </div>
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">Status</span>
-              <span className="col-span-2 font-semibold text-slate-900">{selectedMagang.status_magang}</span>
-            </div>
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">Sertifikat</span>
-              <span className="col-span-2 font-semibold text-slate-900">{selectedMagang.sertifikat}</span>
-            </div>
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">CV Magang</span>
-              <span className="col-span-2 font-semibold text-blue-600 hover:underline">
-                {selectedMagang.cv_magang ? <a href={selectedMagang.cv_magang} target="_blank" rel="noreferrer">Lihat File</a> : "-"}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 border-b border-slate-100 pb-3">
-              <span className="text-slate-500 font-medium">File NDA</span>
-              <span className="col-span-2 font-semibold text-blue-600 hover:underline">
-                {selectedMagang.nda_file ? <a href={selectedMagang.nda_file} target="_blank" rel="noreferrer">Lihat File NDA</a> : <span className="text-slate-400 font-normal">Belum diupload</span>}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 pb-3">
-              <span className="text-slate-500 font-medium">Keterangan</span>
-              <span className="col-span-2 font-semibold text-slate-900 whitespace-pre-line">{selectedMagang.keterangan || "-"}</span>
-            </div>
-          </div>
+          <MagangDetailPeserta key={selectedMagang.id} participant={selectedMagang}
+            onSaved={async () => { setIsModalOpen(false); await fetchData(); }}
+            onNda={() => { setIsModalOpen(false); handleOpenNdaModalForMagang(selectedMagang.id); }}
+            onUploadNda={() => { setIsModalOpen(false); handleOpenUploadNdaModal(selectedMagang); }}
+            onPrintCertificate={() => handlePrintCertificate(selectedMagang)} />
+        ) : modalMode === "add" ? (
+          <FormPendaftaranMagang onClose={() => setIsModalOpen(false)} onRegistered={fetchData} />
         ) : (
           <form onSubmit={handleSave} className="space-y-5">
+            {modalMode === "edit" && selectedMagang?.status_seleksi !== "menunggu" && <label className="block text-sm font-medium">Alasan koreksi identitas / periode
+              <textarea required maxLength={2000} value={formData.alasan_perubahan} onChange={e => setFormData({ ...formData, alasan_perubahan: e.target.value })} className="block w-full border rounded-lg p-2 mt-1" />
+              <span className="text-xs text-amber-800">Perubahan dicatat. Validasi NDA dan surat terkait perlu ditinjau ulang setelah identitas atau periode dikoreksi.</span>
+            </label>}
+            <IdentitasMagangFields value={formData} onChange={identity => setFormData({ ...formData, ...identity })} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1713,6 +1614,7 @@ export default function MagangDashboard() {
                 <input
                   type="date"
                   required
+                  min={formData.tgl_mulai_magang || undefined}
                   value={formData.tgl_selesai_magang}
                   onChange={(e) => setFormData({ ...formData, tgl_selesai_magang: e.target.value })}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
@@ -1729,25 +1631,13 @@ export default function MagangDashboard() {
                   {currentStatus}
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Status Sertifikat</label>
-                <select
-                  required
-                  value={formData.sertifikat}
-                  onChange={(e) => setFormData({ ...formData, sertifikat: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                >
-                  <option value="Belum menerima">Belum menerima</option>
-                  <option value="Sudah menerima">Sudah menerima</option>
-                </select>
-              </div>
+
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Upload CV (PDF/JPG/PNG)</label>
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                required={modalMode === "add"}
                 onChange={(e) => setCvFile(e.target.files?.[0] || null)}
                 className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer border border-slate-200 rounded-xl p-1"
               />
@@ -1791,7 +1681,7 @@ export default function MagangDashboard() {
         <form onSubmit={handlePrintNda} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Nama Anak Magang
+              Nama Peserta Magang
             </label>
             <div className="w-full border border-slate-200 bg-slate-50/80 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-800">
               {magangs.find((m) => String(m.id) === String(ndaFormData.magangId))
@@ -1800,9 +1690,9 @@ export default function MagangDashboard() {
             </div>
             {ndaFormData.magangId && (
               <p className="mt-1.5 text-xs text-slate-500 font-medium">
-                Nomor Surat (Otomatis):{" "}
+                Referensi Draf (Otomatis):{" "}
                 <span className="font-bold text-slate-800">
-                  NO: {String((magangs.findIndex((m) => String(m.id) === String(ndaFormData.magangId)) >= 0 ? magangs.findIndex((m) => String(m.id) === String(ndaFormData.magangId)) + 7 : 7)).padStart(2, "0")}/NDA/APTIKA/{new Date().getFullYear()}
+                  {magangs.find((m) => String(m.id) === String(ndaFormData.magangId))?.nomor_nda || "DRAF BELUM DISAHKAN"}
                 </span>
               </p>
             )}
@@ -1858,7 +1748,7 @@ export default function MagangDashboard() {
         <form onSubmit={handleSaveNdaUpload} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Anak Magang
+              Peserta Magang
             </label>
             <div className="w-full border border-slate-200 bg-slate-50/80 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-800">
               {targetMagangForNda ? `${targetMagangForNda.nama} - ${targetMagangForNda.nama_kampus}` : "-"}

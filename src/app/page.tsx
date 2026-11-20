@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   GraduationCap,
@@ -15,8 +15,10 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { FormPendaftaranMagang } from "@/components/magang/FormPendaftaranMagang";
+import { SalinTautan } from "@/components/ui/SalinTautan";
 import { Modal } from "@/components/ui/Modal";
-import { login, createMagang, getBidangs } from "@/services/api";
+import { login } from "@/services/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export default function Home() {
@@ -32,77 +34,6 @@ export default function Home() {
 
   // Magang modal state
   const [isMagangModalOpen, setIsMagangModalOpen] = useState(false);
-  const [magangSubmitting, setMagangSubmitting] = useState(false);
-  const [magangSuccess, setMagangSuccess] = useState(false);
-  const [bidangs, setBidangs] = useState<any[]>([]);
-
-  const [formData, setFormData] = useState({
-    nama: "",
-    nama_kampus: "",
-    bidang_id: "3", // default APTIKA
-    tgl_mulai_magang: "",
-    tgl_selesai_magang: "",
-    sertifikat: "Belum menerima",
-    keterangan: "",
-  });
-  const [cvFile, setCvFile] = useState<File | null>(null);
-
-  useEffect(() => {
-    getBidangs()
-      .then((res) => {
-        if (res && res.data) {
-          setBidangs(res.data);
-          if (res.data.length > 0 && !formData.bidang_id) {
-            setFormData((prev) => ({ ...prev, bidang_id: String(res.data[0].id) }));
-          }
-        }
-      })
-      .catch((err) => console.error("Gagal memuat bidang:", err));
-  }, []);
-
-  const computeStatusMagang = (tglMulai: string, tglSelesai: string) => {
-    if (!tglMulai || !tglSelesai) return "-";
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const start = new Date(tglMulai);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(tglSelesai);
-    end.setHours(0, 0, 0, 0);
-
-    if (today < start) return "Belum mulai";
-    if (today > end) return "Selesai magang";
-    return "Sedang magang";
-  };
-
-  const currentStatus = computeStatusMagang(
-    formData.tgl_mulai_magang,
-    formData.tgl_selesai_magang
-  );
-
-  const resetMagangForm = () => {
-    setFormData({
-      nama: "",
-      nama_kampus: "",
-      bidang_id: bidangs.length > 0 ? String(bidangs[0].id) : "3",
-      tgl_mulai_magang: "",
-      tgl_selesai_magang: "",
-      sertifikat: "Belum menerima",
-      keterangan: "",
-    });
-    setCvFile(null);
-    setMagangSuccess(false);
-  };
-
-  const handleOpenMagangModal = () => {
-    resetMagangForm();
-    setIsMagangModalOpen(true);
-  };
-
-  const handleCloseMagangModal = () => {
-    setIsMagangModalOpen(false);
-    resetMagangForm();
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
@@ -131,7 +62,9 @@ export default function Home() {
         authState.user?.role === "admin" ||
         authState.isAdminAptika;
 
-      if (isAdmin) {
+      if (loggedUser?.is_magang || authState.user?.is_magang) {
+        router.push("/magang/dashboard");
+      } else if (isAdmin) {
         router.push("/admin");
       } else {
         router.push("/dashboard");
@@ -140,42 +73,6 @@ export default function Home() {
       setLoginError(err.response?.data?.message || "Username/email atau password salah.");
     } finally {
       setLoginLoading(false);
-    }
-  };
-
-  const handleSaveMagang = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (cvFile && cvFile.size > 2 * 1024 * 1024) {
-      alert("Ukuran file CV Magang tidak boleh melebihi 2MB");
-      return;
-    }
-
-    setMagangSubmitting(true);
-    try {
-      const payload = new FormData();
-      payload.append("nama", formData.nama);
-      payload.append("nama_kampus", formData.nama_kampus);
-      payload.append("bidang_id", formData.bidang_id);
-      payload.append("tgl_mulai_magang", formData.tgl_mulai_magang);
-      payload.append("tgl_selesai_magang", formData.tgl_selesai_magang);
-      payload.append("sertifikat", formData.sertifikat);
-      if (formData.keterangan) payload.append("keterangan", formData.keterangan);
-      if (cvFile) payload.append("cv_magang", cvFile);
-
-      await createMagang(payload);
-      setMagangSuccess(true);
-    } catch (error: any) {
-      if (error?.response?.status === 413) {
-        alert("Gagal menyimpan data: Ukuran file terlalu besar (Maksimal 2MB)");
-      } else if (error?.response?.data?.message) {
-        alert(`Gagal menyimpan data: ${error.response.data.message}`);
-      } else {
-        alert("Gagal menyimpan data. Pastikan semua field telah diisi dengan benar.");
-      }
-      console.error("Error submitting magang application:", error);
-    } finally {
-      setMagangSubmitting(false);
     }
   };
 
@@ -383,49 +280,26 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Public Action Cards */}
-          <div className="space-y-3">
-            {/* Daftar Magang (Open Modal) */}
-            <div
-              onClick={handleOpenMagangModal}
-              className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-purple-300 hover:shadow-md transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-purple-500 flex items-center justify-center text-white shadow-sm flex-shrink-0">
-                  <GraduationCap size={22} />
-                </div>
-                <div>
-                  <h5 className="text-xs font-extrabold text-slate-800 group-hover:text-purple-600 transition-colors">
-                    Daftar Magang
-                  </h5>
-                  <p className="text-[10.5px] text-slate-500">
-                    Ajukan pendaftaran program magang secara online
-                  </p>
-                </div>
+          <div className="space-y-2">
+            {[
+              { title: "Daftar Magang", path: "/daftar-magang", label: "pendaftaran magang", Icon: GraduationCap,
+                accent: "bg-violet-50 text-violet-700", open: () => setIsMagangModalOpen(true) },
+              { title: "Permohonan RFC", path: "/form-perubahan-it", label: "permohonan RFC", Icon: FileText,
+                accent: "bg-emerald-50 text-emerald-700", open: () => router.push("/form-perubahan-it") },
+            ].map(({ title, path, label, Icon, accent, open }) => (
+              <div key={path} className="relative flex items-center gap-1 rounded-2xl border border-slate-200 bg-white pr-2 transition hover:border-slate-300 hover:shadow-sm">
+                <button type="button" onClick={open}
+                  className="group flex min-w-0 flex-1 items-center gap-3 rounded-l-2xl py-2.5 pl-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${accent}`}>
+                    <Icon size={18} aria-hidden="true" />
+                  </span>
+                  <span className="flex-1 text-sm font-bold text-slate-800">{title}</span>
+                  <ArrowRight size={15} aria-hidden="true" className="shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-700" />
+                </button>
+                <span aria-hidden="true" className="mx-1 h-5 w-px bg-slate-200" />
+                <SalinTautan path={path} label={label} appearance="icon" />
               </div>
-              <ArrowRight size={15} className="text-slate-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
-            </div>
-
-            {/* Permohonan RFC */}
-            <div
-              onClick={() => router.push("/form-perubahan-it")}
-              className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-sm flex-shrink-0">
-                  <FileText size={22} />
-                </div>
-                <div>
-                  <h5 className="text-xs font-extrabold text-slate-800 group-hover:text-emerald-600 transition-colors">
-                    Permohonan RFC
-                  </h5>
-                  <p className="text-[10.5px] text-slate-500">
-                    Ajukan permohonan perubahan sistem & IT
-                  </p>
-                </div>
-              </div>
-              <ArrowRight size={15} className="text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
-            </div>
+            ))}
           </div>
 
           {/* Footer Copyright */}
@@ -439,188 +313,11 @@ export default function Home() {
       {/* ── MODAL FORM DAFTAR MAGANG ── */}
       <Modal
         isOpen={isMagangModalOpen}
-        onClose={handleCloseMagangModal}
-        title={magangSuccess ? "Pendaftaran Berhasil" : "Tambah Data Magang"}
-        size="lg"
+        onClose={() => setIsMagangModalOpen(false)}
+        title="Pendaftaran Magang"
+        size="xl"
       >
-        {magangSuccess ? (
-          <div className="text-center py-8 space-y-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
-              <CheckCircle2 size={36} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900">Pendaftaran Berhasil Dikirim!</h3>
-            <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-              Terima kasih, data pendaftaran magang Anda telah berhasil disimpan. Tim APTIKA Diskominfo Jabar akan memverifikasi berkas Anda.
-            </p>
-            <div className="pt-4">
-              <button
-                type="button"
-                onClick={handleCloseMagangModal}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all shadow-sm"
-              >
-                Selesai
-              </button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSaveMagang} className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nama Lengkap <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.nama}
-                  onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="Masukkan nama"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nama Kampus / Sekolah <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.nama_kampus}
-                  onChange={(e) => setFormData({ ...formData, nama_kampus: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="Masukkan institusi"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Pilih Bidang Tujuan Magang <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={formData.bidang_id}
-                  onChange={(e) => setFormData({ ...formData, bidang_id: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-white"
-                >
-                  <option value="">-- Pilih Bidang / Unit Kerja --</option>
-                  {bidangs.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Tanggal Mulai <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={formData.tgl_mulai_magang}
-                  onChange={(e) =>
-                    setFormData({ ...formData, tgl_mulai_magang: e.target.value })
-                  }
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Tanggal Selesai <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={formData.tgl_selesai_magang}
-                  onChange={(e) =>
-                    setFormData({ ...formData, tgl_selesai_magang: e.target.value })
-                  }
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Status Magang
-                </label>
-                <div
-                  className={`w-full rounded-lg px-3 py-2 text-sm font-semibold border ${
-                    currentStatus === "Sedang magang"
-                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                      : currentStatus === "Selesai magang"
-                      ? "bg-green-50 text-green-700 border-green-200"
-                      : currentStatus === "Belum mulai"
-                      ? "bg-slate-50 text-slate-700 border-slate-200"
-                      : "bg-slate-50 text-slate-400 border-slate-200"
-                  }`}
-                >
-                  {currentStatus}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Status Sertifikat
-                </label>
-                <select
-                  required
-                  value={formData.sertifikat}
-                  onChange={(e) => setFormData({ ...formData, sertifikat: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                >
-                  <option value="Belum menerima">Belum menerima</option>
-                  <option value="Sudah menerima">Sudah menerima</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Upload CV (PDF/JPG/PNG) <span className="text-red-500">* (Maks 2MB)</span>
-              </label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                required
-                onChange={(e) => setCvFile(e.target.files?.[0] || null)}
-                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer border border-slate-200 rounded-xl p-1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Keterangan (Opsional)
-              </label>
-              <textarea
-                value={formData.keterangan}
-                onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                rows={3}
-                placeholder="Masukkan keterangan jika ada..."
-              ></textarea>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={handleCloseMagangModal}
-                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-all"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                disabled={magangSubmitting}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
-              >
-                {magangSubmitting ? "Mengirim..." : "Kirim Data"}
-              </button>
-            </div>
-          </form>
-        )}
+        {isMagangModalOpen && <FormPendaftaranMagang onClose={() => setIsMagangModalOpen(false)} />}
       </Modal>
     </div>
   );
