@@ -74,7 +74,7 @@ export function RingkasanPendaftaran({ data, receipt, photo, headingRef }: {
     setError("");
     try {
       const { buatBuktiPendaftaran } = await import("./exportBuktiPendaftaran");
-      const doc = buatBuktiPendaftaran(receipt);
+      const doc = await buatBuktiPendaftaran(receipt);
       doc.save(`bukti-pendaftaran-magang-${receipt.id}.pdf`);
     } catch {
       setError("PDF belum berhasil dibuat. Silakan coba unduh lagi.");

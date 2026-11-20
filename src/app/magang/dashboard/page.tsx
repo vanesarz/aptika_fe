@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
-import { Users, UserCheck, Eye, Edit, Pencil, Trash2, Plus, Printer, Upload, Download, FileText, Search, RotateCcw, GraduationCap, ClipboardList, CheckCircle2, Award, ArrowDownRight } from "lucide-react";
+import { Users, UserCheck, Eye, Edit, Pencil, Trash2, Plus, Printer, Upload, Download, FileText, Search, RotateCcw, GraduationCap, ClipboardList, CheckCircle2, Award, ArrowDownRight, ClipboardCheck } from "lucide-react";
 import { getMagangList, deleteMagang, updateMagang, uploadMagangNda, getBidangs } from "@/services/api";
 import { IdentitasMagangFields, emptyIdentitasMagang, appendIdentitasMagang } from "@/components/magang/IdentitasMagangFields";
 import { FormPendaftaranMagang } from "@/components/magang/FormPendaftaranMagang";
@@ -13,6 +13,38 @@ import { MagangDetailPeserta } from "@/components/magang/MagangDetailPeserta";
 import { SalinLinkPendaftaranMagang } from "@/components/magang/SalinLinkPendaftaranMagang";
 import { SortMagang, sortMagang } from "@/components/magang/sortMagang";
 import { useAuthStore } from "@/store/useAuthStore";
+
+const kartuStatusMagang = [
+  { value: "Diterima", label: "Total Peserta Magang", Icon: Users, accent: "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300", stripe: "from-amber-500 to-yellow-400" },
+  { value: "Sedang magang", label: "Sedang Aktif Magang", Icon: UserCheck, accent: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300", stripe: "from-emerald-500 to-teal-400" },
+  { value: "Menunggu seleksi", label: "Pendaftar Magang", Icon: ClipboardList, accent: "bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300", stripe: "from-blue-500 to-indigo-400" },
+  { value: "Menunggu evaluasi", label: "Menunggu Evaluasi Mentor", Icon: ClipboardCheck, accent: "bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300", stripe: "from-violet-500 to-purple-400" },
+] as const;
+
+const statusMagang = [
+  "Diterima", "Sedang magang", "Menunggu seleksi", "Menunggu evaluasi",
+  "Belum mulai", "Selesai magang", "Menunggu validasi NDA", "Ditolak",
+] as const;
+
+type FilterStatusMagang = typeof statusMagang[number] | "all";
+
+function sesuaiStatusMagang(item: {
+  status_magang?: string;
+  status_seleksi?: string;
+  nda_file?: string | null;
+  nda_validated_at?: string | null;
+  dinilai_at?: string | null;
+}, status: FilterStatusMagang) {
+  switch (status) {
+    case "all": return true;
+    case "Diterima": return item.status_seleksi === "diterima";
+    case "Menunggu seleksi": return item.status_seleksi === "menunggu";
+    case "Ditolak": return item.status_seleksi === "ditolak";
+    case "Menunggu evaluasi": return item.status_magang === "Selesai magang" && !item.dinilai_at;
+    case "Menunggu validasi NDA": return item.status_seleksi === "diterima" && Boolean(item.nda_file) && !item.nda_validated_at;
+    default: return item.status_magang === status;
+  }
+}
 
 const formatDate = (dateString: string) => {
   if (!dateString) return "-";
@@ -1040,16 +1072,14 @@ export default function MagangDashboard() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBidang, setFilterBidang] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<FilterStatusMagang>("all");
   const [sortBy, setSortBy] = useState<SortMagang>("terbaru");
-  const [showApplicants, setShowApplicants] = useState(false);
   const tableHeading = useRef<HTMLHeadingElement>(null);
-  const applicants = magangs.filter(item => item.status_seleksi === "menunggu");
-  const tableData = showApplicants ? applicants : magangs;
+  const tableData = magangs.filter(item => sesuaiStatusMagang(item, filterStatus));
 
-  function showApplicantTable() {
+  function showStatusTable(status: FilterStatusMagang) {
     handleResetFilter();
-    setShowApplicants(true);
+    setFilterStatus(status);
     tableHeading.current?.focus({ preventScroll: true });
     tableHeading.current?.scrollIntoView({ block: "start" });
   }
@@ -1067,10 +1097,6 @@ export default function MagangDashboard() {
       if (itemBidangId !== filterBidang) return false;
     }
 
-    if (filterStatus !== "all") {
-      if (item.status_magang !== filterStatus) return false;
-    }
-
     return true;
   }), sortBy);
 
@@ -1083,9 +1109,6 @@ export default function MagangDashboard() {
     setSortBy("terbaru");
   };
 
-  const activeMagangs = magangs.filter(m => m.status_magang === 'Sedang magang').length;
-  const selesaiMagangs = magangs.filter(m => m.status_magang === 'Selesai magang').length;
-  const sertifikatTerbit = magangs.filter(m => m.sertifikat === 'Sudah menerima').length;
 
   return (
     <div className="flex flex-col gap-6 pb-6 font-sans">
@@ -1265,72 +1288,27 @@ export default function MagangDashboard() {
         </div>
       </div>
 
-      {/* ── RINGKASAN MAGANG ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {/* Total Peserta Magang */}
-        <div className="relative overflow-hidden bg-white/70 dark:bg-[#071733]/90 backdrop-blur-md rounded-3xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-800 hover:shadow-md hover:-translate-y-0.5 transition-all group">
-          <div className="h-1.5 w-full absolute top-0 left-0 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400" />
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Total Peserta Magang
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kartuStatusMagang.map(({ value, label, Icon, accent, stripe }) => {
+          const count = magangs.filter(item => sesuaiStatusMagang(item, value)).length;
+          return (
+            <button key={value} type="button" onClick={() => showStatusTable(value)}
+              aria-controls="tabel-peserta-magang" aria-pressed={filterStatus === value}
+              className={`group relative overflow-hidden rounded-2xl border bg-white/70 p-4 text-left shadow-sm backdrop-blur-md transition hover:border-blue-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-[#071733]/90 ${filterStatus === value ? "border-blue-500 ring-1 ring-blue-500" : "border-slate-200/80 dark:border-slate-800"}`}>
+              <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${stripe}`} />
+              <span className="flex items-center justify-between gap-3">
+                <span>
+                  <span className="block text-xs font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+                  <span className="mt-1.5 block text-2xl font-black leading-none text-slate-900 dark:text-white">{count}</span>
+                </span>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${accent}`}><Icon size={19} aria-hidden="true" /></span>
               </span>
-              <div className="mt-2 flex items-baseline gap-2.5">
-                <h3 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">{availableMagangs.length}</h3>
-                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400">diterima</span>
-              </div>
-            </div>
-            <div className="w-13 h-13 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
-              <Users size={24} />
-            </div>
-          </div>
-          <p className="mt-4 text-xs text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Peserta yang telah lolos seleksi
-          </p>
-        </div>
-
-        {/* Sedang Magang */}
-        <div className="relative overflow-hidden bg-white/70 dark:bg-[#071733]/90 backdrop-blur-md rounded-3xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-800 hover:shadow-md hover:-translate-y-0.5 transition-all group">
-          <div className="h-1.5 w-full absolute top-0 left-0 bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400" />
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Sedang Aktif Magang
+              <span className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                Lihat data <ArrowDownRight size={14} aria-hidden="true" />
               </span>
-              <div className="mt-2 flex items-baseline gap-2.5">
-                <h3 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">{activeMagangs}</h3>
-                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400">peserta</span>
-              </div>
-            </div>
-            <div className="w-13 h-13 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
-              <UserCheck size={24} />
-            </div>
-          </div>
-          <p className="mt-4 text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Sedang melaksanakan tugas penugasan di unit kerja
-          </p>
-        </div>
-        <button type="button" onClick={showApplicantTable} aria-controls="tabel-peserta-magang"
-          className={`group relative overflow-hidden rounded-3xl border bg-white/70 p-6 text-left shadow-sm backdrop-blur-md transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-[#071733]/90 ${showApplicants ? "border-blue-500" : "border-slate-200/80 dark:border-slate-800"}`}>
-          <span className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-600 via-indigo-500 to-violet-400" />
-          <span className="flex items-center justify-between gap-3">
-            <span>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Pendaftar Magang</span>
-              <span className="mt-2 flex items-baseline gap-2.5">
-                <span className="text-3xl font-black leading-tight text-slate-900 dark:text-white">{applicants.length}</span>
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">menunggu seleksi</span>
-              </span>
-            </span>
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-400">
-              <ClipboardList size={22} />
-            </span>
-          </span>
-          <span className="mt-4 flex items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
-            Lihat daftar pendaftar <ArrowDownRight size={15} aria-hidden="true" />
-          </span>
-        </button>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── DAFTAR PESERTA MAGANG (Header + Filter + Tabel) ── */}
@@ -1343,10 +1321,10 @@ export default function MagangDashboard() {
             </div>
             <div>
               <h2 ref={tableHeading} tabIndex={-1} className="scroll-mt-28 text-base font-extrabold leading-tight text-slate-800 dark:text-white">
-                {showApplicants ? "Daftar Pendaftar Magang" : "Daftar Peserta Magang"}
+                {filterStatus === "Menunggu seleksi" ? "Daftar Pendaftar Magang" : "Daftar Peserta Magang"}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {showApplicants ? "Pendaftar yang menunggu seleksi" : "Informasi pendaftaran dan status magang"}
+                {filterStatus === "all" ? "Informasi pendaftaran dan status magang" : filterStatus}
                 {isFiltered && ` (${filteredMagangs.length} dari ${tableData.length} data)`}
               </p>
             </div>
@@ -1393,19 +1371,14 @@ export default function MagangDashboard() {
               ))}
             </select>
 
-            {!showApplicants && <select
+            <select aria-label="Filter status magang"
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => setFilterStatus(e.target.value as FilterStatusMagang)}
               className="sm:w-[190px] px-3 py-2.5 text-[12.5px] bg-white dark:bg-[#0b1630] border border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-slate-700 dark:text-slate-200 cursor-pointer"
             >
               <option value="all">Semua Status Magang</option>
-              <option value="Sedang magang">Sedang magang</option>
-              <option value="Selesai magang">Selesai magang</option>
-              <option value="Belum mulai">Belum mulai</option>
-              <option value="Menunggu seleksi">Menunggu seleksi</option>
-              <option value="Menunggu validasi NDA">Menunggu validasi NDA</option>
-              <option value="Ditolak">Ditolak</option>
-            </select>}
+              {statusMagang.map(status => <option key={status} value={status}>{status}</option>)}
+            </select>
 
             <select aria-label="Urutkan peserta magang" value={sortBy} onChange={e => setSortBy(e.target.value as SortMagang)}
               className="sm:w-[205px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[12.5px] text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
@@ -1417,12 +1390,6 @@ export default function MagangDashboard() {
               <option value="kampus_za">Kampus Z–A</option>
             </select>
 
-            {showApplicants && (
-              <button type="button" onClick={() => { handleResetFilter(); setShowApplicants(false); }}
-                className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
-                Lihat semua data
-              </button>
-            )}
             {isFiltered && (
               <button
                 onClick={handleResetFilter}
@@ -1459,7 +1426,7 @@ export default function MagangDashboard() {
                 ) : filteredMagangs.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-10 text-sm text-slate-500">
-                      {isFiltered ? "Tidak ada data yang sesuai filter" : showApplicants ? "Belum ada pendaftar yang menunggu seleksi." : "Belum ada data magang."}
+                      {isFiltered ? "Tidak ada data yang sesuai filter." : "Belum ada data magang."}
                     </td>
                   </tr>
                 ) : (

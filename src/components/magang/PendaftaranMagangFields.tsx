@@ -1,5 +1,6 @@
 "use client";
 
+import { PesanValidasi, useValidasiPendaftaran } from "./ValidasiPendaftaran";
 import type { ReactNode } from "react";
 import { CalendarDays, FileCheck2, GraduationCap, ShieldCheck, UserRound } from "lucide-react";
 import { IdentitasMagangFields, IdentitasMagang } from "./IdentitasMagangFields";
@@ -12,18 +13,20 @@ export interface DataPendaftaranMagang extends IdentitasMagang {
   nama: string; nama_kampus: string; bidang_id: string;
   tgl_mulai_magang: string; tgl_selesai_magang: string; keterangan: string;
 }
-const input = "mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
-function TanggalMagangField({ label, hint, value, min, onChange }: {
-  label: string; hint: string; value: string; min?: string; onChange: (value: string) => void;
+const input = "mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 aria-[invalid=true]:border-rose-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:aria-[invalid=true]:border-rose-500";
+function TanggalMagangField({ name, label, hint, value, min, onChange }: {
+  name: string; label: string; hint: string; value: string; min?: string; onChange: (value: string) => void;
 }) {
+  const field = useValidasiPendaftaran().kolom(name);
   return (
     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
       {label} <PenandaKolom wajib />
       <span className="group relative block">
-        <input required type="date" value={value} min={min} onChange={event => onChange(event.target.value)}
+        <input {...field.attributes} required type="date" value={value} min={min} onChange={event => onChange(event.target.value)}
           className={`${input} ${value ? "" : "[&:not(:focus)::-webkit-datetime-edit]:opacity-0"}`} />
         {!value && <span aria-hidden="true" className="pointer-events-none absolute bottom-px left-px top-[7px] flex items-center rounded-l-xl bg-slate-50 pl-3.5 pr-2 text-sm font-normal text-slate-500 group-focus-within:hidden dark:bg-slate-900 dark:text-slate-400">{hint}</span>}
       </span>
+      <PesanValidasi {...field.feedback} />
     </label>
   );
 }
@@ -36,6 +39,7 @@ export function PendaftaranMagangFields({ value, onChange, bidangs, username, on
   files: BerkasPendaftaran; onFiles: (value: BerkasPendaftaran) => void; onReady: (ready: boolean) => void;
   photo: File | null; onPhoto: (value: File | null) => void; latar: string; onLatar: (value: string) => void;
 }) {
+  const { kolom } = useValidasiPendaftaran();
   return <div className="space-y-6">
     <div className="relative rounded-2xl bg-gradient-to-br from-slate-950 via-blue-950 to-blue-800 px-6 py-6 text-white">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
@@ -67,29 +71,29 @@ export function PendaftaranMagangFields({ value, onChange, bidangs, username, on
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white"><UserRound size={17} className="text-blue-600" />Identitas utama</h3>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Nama lengkap <PenandaKolom wajib /><input required maxLength={255} value={value.nama} onChange={e => onChange({ ...value, nama: e.target.value })} placeholder="Sesuai identitas resmi" className={input} autoComplete="name" /></label>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Kampus / sekolah <PenandaKolom wajib /><input required maxLength={255} value={value.nama_kampus} onChange={e => onChange({ ...value, nama_kampus: e.target.value })} placeholder="Nama institusi pendidikan" className={input} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Nama lengkap <PenandaKolom wajib /><input {...kolom("nama").attributes} required maxLength={255} value={value.nama} onChange={e => onChange({ ...value, nama: e.target.value })} placeholder="Sesuai identitas resmi" className={input} autoComplete="name" /><PesanValidasi {...kolom("nama").feedback} /></label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Kampus / sekolah <PenandaKolom wajib /><input {...kolom("nama_kampus").attributes} required maxLength={255} value={value.nama_kampus} onChange={e => onChange({ ...value, nama_kampus: e.target.value })} placeholder="Nama institusi pendidikan" className={input} /><PesanValidasi {...kolom("nama_kampus").feedback} /></label>
           </div>
           <div className="mt-5 border-t border-slate-100 pt-4"><IdentitasMagangFields value={value} onChange={identity => onChange({ ...value, ...identity })} /></div>
         </section>
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white"><CalendarDays size={17} className="text-blue-600" />Rencana penempatan</h3>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Bidang tujuan <PenandaKolom wajib /><select required value={value.bidang_id} onChange={e => onChange({ ...value, bidang_id: e.target.value })} className={input}><option value="">Pilih bidang tujuan</option>{bidangs.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Bidang tujuan <PenandaKolom wajib /><select {...kolom("bidang_id").attributes} required value={value.bidang_id} onChange={e => onChange({ ...value, bidang_id: e.target.value })} className={input}><option value="">Pilih bidang tujuan</option>{bidangs.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select><PesanValidasi {...kolom("bidang_id").feedback} /></label>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <TanggalMagangField label="Tanggal mulai" hint="Pilih tanggal mulai" value={value.tgl_mulai_magang}
+            <TanggalMagangField name="tgl_mulai_magang" label="Tanggal mulai" hint="Pilih tanggal mulai" value={value.tgl_mulai_magang}
               onChange={date => onChange({ ...value, tgl_mulai_magang: date })} />
-            <TanggalMagangField label="Tanggal selesai" hint="Pilih tanggal selesai" value={value.tgl_selesai_magang}
+            <TanggalMagangField name="tgl_selesai_magang" label="Tanggal selesai" hint="Pilih tanggal selesai" value={value.tgl_selesai_magang}
               min={value.tgl_mulai_magang || undefined} onChange={date => onChange({ ...value, tgl_selesai_magang: date })} />
           </div>
         </section>
         <AkunMagangFields username={username} onChange={onUsername} />
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-white"><FileCheck2 size={17} className="text-blue-600" />Curriculum vitae <PenandaKolom wajib /></h3>
-          <UnggahDokumenMagang label="Unggah CV peserta (wajib)" file={cv} onFile={onCv}
+          <UnggahDokumenMagang name="cv_magang" label="Unggah CV peserta (wajib)" file={cv} onFile={onCv}
             maxMb={2} required />
         </section>
         <PendaftaranDokumenFields files={files} onChange={onFiles} onReady={onReady} />
-        <label className="block rounded-2xl border border-slate-200 bg-white p-5 text-sm font-medium text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">Keterangan tambahan <PenandaKolom /><textarea rows={3} value={value.keterangan} onChange={e => onChange({ ...value, keterangan: e.target.value })} placeholder="Informasi lain yang perlu diketahui mentor" className={input} /></label>
+        <label className="block rounded-2xl border border-slate-200 bg-white p-5 text-sm font-medium text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">Keterangan tambahan <PenandaKolom /><textarea {...kolom("keterangan").attributes} rows={3} value={value.keterangan} onChange={e => onChange({ ...value, keterangan: e.target.value })} placeholder="Informasi lain yang perlu diketahui mentor" className={input} /><PesanValidasi {...kolom("keterangan").feedback} /></label>
       </div>
     </div>
   </div>;

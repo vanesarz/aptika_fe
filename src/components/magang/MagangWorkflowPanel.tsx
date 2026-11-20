@@ -6,6 +6,7 @@ import { MagangWorkflow, NilaiMagang, OpsiMagang, opsiMagang, seleksiMagang, val
 import { api } from "@/services/api";
 import { MagangDokumenPanel, escapeMagangHtml as esc } from "./MagangDokumenPanel";
 import axios from "axios";
+import { TautanDokumenMagang } from "./TautanDokumenMagang";
 
 export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = "semua" }: {
   section?: "semua" | "proses" | "dokumen" | "penilaian";
@@ -78,12 +79,16 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
       <dt>NDA</dt><dd>{p.nda_validated_at ? "Tervalidasi" : p.nda_file ? "Menunggu pemeriksaan" : "Belum diunggah"}</dd>
       <dt>Referensi draf NDA</dt><dd>{p.nomor_nda || "—"}</dd>
     </dl>}
-    {dokumen && !!p.lampiran_pendaftaran?.length && <div className="rounded-lg border p-3 space-y-2"><h4 className="font-semibold text-sm">Berkas pendaftaran</h4>
-      {p.lampiran_pendaftaran.map(file => <button key={file.jenis} type="button" className="block text-sm text-blue-700 underline" onClick={async () => {
-        try { const result = await api.get(file.url, { responseType: "blob" }); const url = URL.createObjectURL(result.data); const link = document.createElement("a"); link.href = url; link.download = file.nama; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
-        catch { setError("Berkas tidak dapat diunduh."); }
-      }}>{file.label} · {file.nama}</button>)}
-    </div>}
+    {dokumen && (p.cv_magang || !!p.lampiran_pendaftaran?.length) && (
+      <div className="space-y-2.5">
+        <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Berkas pendaftaran</h4>
+        {p.cv_magang && <TautanDokumenMagang label="Curriculum vitae (CV)" href={p.cv_magang} />}
+        {p.lampiran_pendaftaran?.map(file => (
+          <TautanDokumenMagang key={file.jenis} label={file.label} filename={file.nama} href={file.url} authenticated />
+        ))}
+      </div>
+    )}
+    {dokumen && p.nda_file && <TautanDokumenMagang label="NDA bertanda tangan" href={p.nda_file} />}
     {notice && <p role="status" className="text-sm text-blue-700">{notice}</p>}
     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
     {proses && p.status_seleksi === "menunggu" && canManage && <form className="space-y-3" onSubmit={e => { e.preventDefault(); action(() => seleksiMagang(p.id, "diterima", note, Number(mentorId), matchingMajor)); }}>
@@ -180,7 +185,7 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
         <button disabled={busy || ndaBlocks} className={button}>Simpan dokumen disahkan</button>
       </form>}
       {dokumen && p.disahkan_at && <p className="text-sm font-semibold text-green-800">Sertifikat disahkan · {p.nomor_sertifikat}</p>}
-      {dokumen && p.sertifikat_file && <a className="block text-blue-700 underline" href={p.sertifikat_file} target="_blank" rel="noreferrer">Unduh sertifikat resmi</a>}
+      {dokumen && p.sertifikat_file && <TautanDokumenMagang label="Sertifikat resmi" href={p.sertifikat_file} />}
     </>}
     {proses && !!p.riwayat_perubahan?.length && <details className="text-sm border-t pt-3"><summary className="cursor-pointer">Riwayat koreksi data</summary><ul className="space-y-2 mt-2">{p.riwayat_perubahan.map((entry, i) => <li key={i}>{new Date(entry.waktu).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} · pengguna #{entry.oleh} · {entry.kolom.join(", ")} · {entry.alasan || "Pembaruan data"}</li>)}</ul></details>}
   </section>;

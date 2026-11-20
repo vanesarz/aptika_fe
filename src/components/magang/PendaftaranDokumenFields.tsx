@@ -4,6 +4,7 @@ import { Briefcase, FileBadge, FilePlus2, FileText, FolderOpen, Plus, X } from "
 import { UnggahDokumenMagang } from "./UnggahDokumenMagang";
 import { useEffect, useState } from "react";
 import { api } from "@/services/api";
+import { PesanValidasi, useValidasiPendaftaran } from "./ValidasiPendaftaran";
 import { PenandaKolom } from "./PenandaKolom";
 
 export type BerkasPendaftaran = Record<string, File>;
@@ -15,6 +16,7 @@ const documentIcons = {
 };
 
 export function PendaftaranDokumenFields({ files, onChange, onReady }: { files: BerkasPendaftaran; onChange: (files: BerkasPendaftaran) => void; onReady?: (ready: boolean) => void }) {
+  const { clearError } = useValidasiPendaftaran();
   const [specs, setSpecs] = useState<Record<string, { label: string; wajib: boolean }> | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -47,10 +49,11 @@ export function PendaftaranDokumenFields({ files, onChange, onReady }: { files: 
             {!spec.wajib && <button type="button" className="rounded-md p-1 text-slate-500 hover:bg-rose-50 hover:text-rose-700"
               aria-label={`Hapus ${spec.label}`} onClick={() => {
                 setSelected(previous => previous.filter(item => item !== key));
+                clearError?.(key);
                 updateFile(key, null);
               }}><X size={16} /></button>}
           </div>
-          <UnggahDokumenMagang label={`Unggah ${spec.label}`} file={files[key]} onFile={file => updateFile(key, file)}
+          <UnggahDokumenMagang name={key} label={`Unggah ${spec.label}`} file={files[key]} onFile={file => updateFile(key, file)}
             maxMb={5} required={spec.wajib} />
         </div>
       ))}
@@ -76,9 +79,10 @@ export function PendaftaranDokumenFields({ files, onChange, onReady }: { files: 
   );
 }
 export function AkunMagangFields({ username, onChange }: { username: string; onChange: (value: string) => void }) {
+  const field = useValidasiPendaftaran().kolom("username");
   return <fieldset className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-5">
     <legend className="font-semibold text-sm px-1">Akun APTIKA Tools</legend>
-    <label className="block text-sm">Nama akun <PenandaKolom wajib /><div className="flex mt-1"><input required minLength={3} maxLength={64} pattern={String.raw`[a-z0-9][a-z0-9._\-]*`} value={username} onChange={e => onChange(e.target.value.toLowerCase())} placeholder="contoh: vanesa.rizka" className="min-w-0 flex-1 border border-slate-200 bg-white rounded-l-xl p-2.5 outline-none focus:border-blue-500" /><span className="border border-l-0 rounded-r-xl px-3 py-2 bg-slate-100">@magang.com</span></div></label>
+    <label className="block text-sm">Nama akun <PenandaKolom wajib /><div className="flex mt-1"><input {...field.attributes} required minLength={3} maxLength={64} pattern={String.raw`[a-z0-9][a-z0-9._\-]*`} value={username} onChange={e => onChange(e.target.value.toLowerCase())} placeholder="contoh: vanesa.rizka" className="min-w-0 flex-1 border border-slate-200 bg-white rounded-l-xl p-2.5 outline-none focus:border-blue-500 aria-[invalid=true]:border-rose-400" /><span className="border border-l-0 rounded-r-xl px-3 py-2 bg-slate-100">@magang.com</span></div><PesanValidasi {...field.feedback} /></label>
     <p className="text-xs text-slate-600">Email ini khusus login; email kontak pribadi tetap diisi pada identitas. Akun baru dibuat dan dapat digunakan setelah approval mentor. Jika diterima, password awal dikirim ke email kontak pribadi. Fitur peserta: Magang dan Manajemen Tugas Digital.</p>
   </fieldset>;
 }

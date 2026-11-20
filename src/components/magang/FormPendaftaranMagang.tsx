@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { isAxiosError } from "axios";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { emptyIdentitasMagang, appendIdentitasMagang } from "@/components/magang/IdentitasMagangFields";
 import { BerkasPendaftaran } from "@/components/magang/PendaftaranDokumenFields";
 import { PendaftaranMagangFields } from "@/components/magang/PendaftaranMagangFields";
 import { RingkasanPendaftaran, BuktiPendaftaran } from "@/components/magang/RingkasanPendaftaran";
 import { createMagang, getBidangs } from "@/services/api";
+import { ValidasiPendaftaran, validasiKolomPendaftaran, type KesalahanKolom } from "./ValidasiPendaftaran";
 
 export function FormPendaftaranMagang({ onClose, onRegistered, bannerAction }: { onClose: () => void; onRegistered?: () => void; bannerAction?: ReactNode }) {
   const [magangSubmitting, setMagangSubmitting] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [submitError, setSubmitError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<KesalahanKolom>({});
+  const fieldErrorPrefix = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const focusError = useRef(false);
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const stepsChanged = useRef(false);
   const [buktiPendaftaran, setBuktiPendaftaran] = useState<BuktiPendaftaran | null>(null);
@@ -49,6 +54,25 @@ export function FormPendaftaranMagang({ onClose, onRegistered, bannerAction }: {
     stepHeading.current?.scrollIntoView({ block: "start" });
   }, [step, buktiPendaftaran]);
 
+  useEffect(() => {
+    if (step !== 1 || !focusError.current) return;
+    focusError.current = false;
+    const control = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    control?.focus({ preventScroll: true });
+    control?.closest("label")?.scrollIntoView({ block: "center" });
+  }, [fieldErrors, step]);
+
+  function clearError(name: string) {
+    setFieldErrors(previous => {
+      const clearEndDate = name === "tgl_mulai_magang" && Boolean(previous.tgl_selesai_magang);
+      if (!previous[name] && !clearEndDate) return previous;
+      const next = { ...previous };
+      delete next[name];
+      if (clearEndDate) delete next.tgl_selesai_magang;
+      return next;
+    });
+  }
+
   const draft: Omit<BuktiPendaftaran, "id"> = {
     rows: [
       ["Nama lengkap", formData.nama], ["NIM / NIS", formData.nim],
@@ -74,6 +98,12 @@ export function FormPendaftaranMagang({ onClose, onRegistered, bannerAction }: {
   function handleReview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (step !== 1 || !registrationReady) return;
+    const errors = validasiKolomPendaftaran(event.currentTarget);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      focusError.current = true;
+      return;
+    }
     stepsChanged.current = true;
     setSubmitError("");
     setStep(2);
@@ -110,8 +140,16 @@ export function FormPendaftaranMagang({ onClose, onRegistered, bannerAction }: {
       });
       onRegistered?.();
     } catch (error) {
-      const response = isAxiosError<{ message?: string }>(error) ? error.response : undefined;
-      if (response?.status === 413) {
+      const response = isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(error) ? error.response : undefined;
+      const serverErrors: KesalahanKolom = {};
+      for (const [name, messages] of Object.entries(response?.data?.errors ?? {})) {
+        if (messages[0] && formRef.current?.elements.namedItem(name)) serverErrors[name] = messages[0];
+      }
+      if (response?.status === 422 && Object.keys(serverErrors).length) {
+        focusError.current = true;
+        setFieldErrors(serverErrors);
+        setStep(1);
+      } else if (response?.status === 413) {
         setSubmitError("Total ukuran unggahan terlalu besar.");
       } else if (response?.data?.message) {
         setSubmitError(response.data.message);
@@ -129,15 +167,17 @@ export function FormPendaftaranMagang({ onClose, onRegistered, bannerAction }: {
 
   return (
     <div className="space-y-5">
-      <ol aria-label="Langkah pendaftaran" className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+      <ol aria-label="Langkah pendaftaran" className={`relative mx-auto grid max-w-md grid-cols-2 py-2 before:absolute before:left-1/4 before:right-1/4 before:top-6 before:h-px ${step === 2 ? "before:bg-blue-700 dark:before:bg-blue-400" : "before:bg-slate-300 dark:before:bg-slate-600"}`}>
         {(["Isi formulir", "Ringkasan"] as const).map((label, index) => {
           const number = index + 1;
           const active = step === number;
           return (
             <li key={label} aria-current={active ? "step" : undefined}
-              className={`flex items-center gap-2 text-xs font-semibold sm:text-sm ${active ? "text-blue-700 dark:text-blue-300" : "text-slate-500 dark:text-slate-400"}`}>
-              <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${active ? "bg-blue-700 text-white" : "bg-slate-100 dark:bg-slate-800"}`}>
-                {number < step ? <Check size={15} /> : number}
+              className={`relative flex flex-col items-center gap-1.5 text-center text-xs sm:text-sm ${active ? "font-semibold text-blue-700 dark:text-blue-300" : "text-slate-600 dark:text-slate-400"}`}>
+              <span aria-hidden="true" className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${active
+                ? "border-blue-700 bg-blue-700 text-white"
+                : `bg-white dark:bg-slate-900 ${number < step ? "border-blue-700 text-blue-700 dark:border-blue-400 dark:text-blue-300" : "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300"}`}`}>
+                {number}
               </span>
               {label}
             </li>
@@ -147,11 +187,22 @@ export function FormPendaftaranMagang({ onClose, onRegistered, bannerAction }: {
 
       {!buktiPendaftaran && <div hidden={step !== 1}>
         <h2 ref={step === 1 ? stepHeading : undefined} tabIndex={-1} className="sr-only">Isi formulir pendaftaran</h2>
-        <form onSubmit={handleReview} className="space-y-5">
-          <PendaftaranMagangFields bannerAction={bannerAction} value={formData} onChange={data => setFormData(previous => ({ ...previous, ...data }))}
-            bidangs={bidangs} username={username} onUsername={setUsername} cv={cvFile} onCv={setCvFile}
-            files={registrationFiles} onFiles={setRegistrationFiles} onReady={setRegistrationReady}
-            photo={pasFoto} onPhoto={setPasFoto} latar={fotoLatar} onLatar={setFotoLatar} />
+        <form ref={formRef} noValidate onSubmit={handleReview}
+          onChange={event => {
+            const control = event.target;
+            if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) {
+              clearError(control.name);
+            }
+          }} className="space-y-5">
+          <ValidasiPendaftaran.Provider value={{ errors: fieldErrors, prefix: fieldErrorPrefix, clearError }}>
+            <PendaftaranMagangFields bannerAction={bannerAction} value={formData} onChange={data => setFormData(previous => ({ ...previous, ...data }))}
+              bidangs={bidangs} username={username} onUsername={setUsername} cv={cvFile} onCv={setCvFile}
+              files={registrationFiles} onFiles={setRegistrationFiles} onReady={setRegistrationReady}
+              photo={pasFoto} onPhoto={setPasFoto} latar={fotoLatar} onLatar={setFotoLatar} />
+          </ValidasiPendaftaran.Provider>
+          {Object.keys(fieldErrors).length > 0 && (
+            <p role="alert" className="text-sm font-medium text-rose-700 dark:text-rose-300">Periksa kolom yang ditandai sebelum melanjutkan.</p>
+          )}
           <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
             <button type="button" onClick={onClose} className={secondaryButton}>Batal</button>
             <button type="submit" disabled={!registrationReady} className={primaryButton}>
@@ -164,7 +215,7 @@ export function FormPendaftaranMagang({ onClose, onRegistered, bannerAction }: {
       {step === 2 && (
         <div className="space-y-5">
           <RingkasanPendaftaran data={buktiPendaftaran ?? draft} receipt={buktiPendaftaran}
-            photo={pasFoto} headingRef={stepHeading} />
+              photo={pasFoto} headingRef={stepHeading} />
           {submitError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{submitError}</p>}
           <div className="grid gap-3 sm:grid-cols-2">
             {buktiPendaftaran ? (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TautanDokumenMagang } from "./TautanDokumenMagang";
 import { MagangWorkflow, DokumenMagang, JenisDokumenMagang, simpanDokumenMagang } from "@/services/magangWorkflow";
 
 export const escapeMagangHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -38,7 +39,7 @@ function DocumentForm({ participant: p, jenis, document: d, isAdmin, canManage, 
     <summary className="cursor-pointer text-sm font-semibold">{labels[jenis]} · {d?.status.replaceAll("_", " ") || "belum diproses"}</summary>
     <div className="mt-3 space-y-3 text-sm">
       {d?.nomor && <p>Nomor: {d.nomor} · Pengesah: {d.pengesah || "belum dicatat"}</p>}
-      {d?.file && <a className="block text-blue-700 underline" href={d.file} target="_blank" rel="noreferrer">{d.status === "disahkan" ? "Unduh dokumen disahkan" : "Lihat berkas sebelumnya (perlu ditinjau)"}</a>}
+      {d?.file && <TautanDokumenMagang label={d.status === "disahkan" ? "Dokumen disahkan" : "Berkas sebelumnya (perlu ditinjau)"} href={d.file} />}
       {jenis !== "penilaian" && <button type="button" onClick={print} className="text-blue-700 underline">Cetak draf / simpan PDF</button>}
       {canManage && d?.status !== "disahkan" && (jenis !== "penilaian" || p.dinilai_at) && <form className="space-y-3" onSubmit={e => {
         e.preventDefault(); const data = new FormData(); data.append("jenis", jenis); data.append("status", status);

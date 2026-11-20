@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Camera, ImagePlus, RotateCcw, UserRound, X } from "lucide-react";
 import { api } from "@/services/api";
+import { PesanValidasi, useValidasiPendaftaran } from "./ValidasiPendaftaran";
 import { PenandaKolom } from "./PenandaKolom";
 
 export function PasFotoMagang({ file, onChange }: {
@@ -12,6 +13,8 @@ export function PasFotoMagang({ file, onChange }: {
 }) {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
+  const { kolom, clearError } = useValidasiPendaftaran();
+  const field = kolom("pas_foto", error);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   return (
@@ -20,7 +23,7 @@ export function PasFotoMagang({ file, onChange }: {
         Pas foto <PenandaKolom />
       </legend>
       <div className="relative">
-        <label className="relative flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-blue-200 bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50 px-3 py-4 text-center transition hover:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500 dark:border-slate-600 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900">
+        <label className="relative flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-blue-200 bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50 px-3 py-4 text-center transition hover:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500 dark:border-slate-600 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 [&:has([aria-invalid=true])]:border-rose-400">
           <span className="relative flex aspect-[3/4] w-24 items-center justify-center overflow-hidden rounded-xl border-2 border-white bg-blue-100/70 shadow-sm">
             {file && preview ? (
               <Image unoptimized width={112} height={148} src={preview} alt="Pratinjau pas foto" className="h-full w-full object-contain" />
@@ -38,7 +41,7 @@ export function PasFotoMagang({ file, onChange }: {
           <span className="max-w-full truncate text-xs text-slate-500 dark:text-slate-300" title={file?.name}>
             {file?.name ?? "JPG/PNG · Maks. 2 MB"}
           </span>
-          <input key={file?.name ?? "empty"} type="file" accept="image/jpeg,image/png"
+          <input key={file?.name ?? "empty"} {...field.attributes} type="file" accept="image/jpeg,image/png"
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             aria-label={file ? "Ganti pas foto" : "Tambah pas foto"}
             onChange={event => {
@@ -56,9 +59,9 @@ export function PasFotoMagang({ file, onChange }: {
         </label>
         {file && <button type="button" aria-label="Hapus pas foto"
           className="absolute right-2 top-2 rounded-full bg-white p-1.5 text-slate-600 shadow hover:text-rose-700"
-          onClick={() => { setPreview(""); setError(""); onChange(null); }}><X size={15} /></button>}
+          onClick={() => { setPreview(""); setError(""); clearError?.("pas_foto"); onChange(null); }}><X size={15} /></button>}
       </div>
-      {error && <p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
+      <PesanValidasi {...field.feedback} />
     </fieldset>
   );
 }

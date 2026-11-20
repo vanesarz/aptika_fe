@@ -61,9 +61,7 @@ export function MagangDetailPeserta({ participant: p, onSaved, onNda, onUploadNd
       {p.keterangan && <div className="rounded-2xl border border-slate-200 bg-white p-5"><h3 className="mb-2 text-sm font-bold text-slate-800">Keterangan</h3><p className="whitespace-pre-line text-sm text-slate-500">{p.keterangan}</p></div>}
     </div>}
     <div className={tab === "ringkasan" ? "hidden" : "space-y-4"}>
-      {tab === "dokumen" && <div className="flex flex-wrap gap-2">
-        {p.cv_magang && <a href={p.cv_magang} target="_blank" rel="noreferrer" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700">Lihat CV</a>}
-        {p.nda_file && <a href={p.nda_file} target="_blank" rel="noreferrer" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700">Lihat NDA</a>}
+      {tab === "dokumen" && ((p.status_seleksi === "diterima" && !p.disahkan_at) || (!user?.is_magang && p.dinilai_at)) && <div className="flex flex-wrap gap-2">
         {p.status_seleksi === "diterima" && !p.disahkan_at && <button onClick={onUploadNda} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm">Unggah NDA bertanda tangan</button>}
         {!user?.is_magang && p.dinilai_at && <button onClick={onPrintCertificate} className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700">Cetak draf sertifikat</button>}
       </div>}
