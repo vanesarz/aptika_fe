@@ -13,7 +13,7 @@ const date = (value?: string, time = false) => {
 };
 const tabs = [{ id: "ringkasan", label: "Ringkasan", icon: LayoutGrid }, { id: "proses", label: "Proses magang", icon: ClipboardList }, { id: "dokumen", label: "Dokumen", icon: FileText }, { id: "penilaian", label: "Penilaian", icon: GraduationCap }] as const;
 export function MagangDetailPeserta({ participant: p, onSaved, onNda, onUploadNda, onPrintCertificate }: {
-  participant: MagangWorkflow; onSaved: () => Promise<void>; onNda: () => void;
+  participant: MagangWorkflow; onSaved: (participant?: MagangWorkflow) => Promise<void>; onNda: () => void;
   onUploadNda: () => void; onPrintCertificate: () => void;
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["id"]>("ringkasan");

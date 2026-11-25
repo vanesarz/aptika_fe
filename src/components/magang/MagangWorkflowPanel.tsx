@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
-import { MagangWorkflow, NilaiMagang, OpsiMagang, opsiMagang, seleksiMagang, validasiNdaMagang, nilaiMagang, sahkanMagang, aturPengingatMagang, aturStatusKampus, aktivasiAkunMagang } from "@/services/magangWorkflow";
+import { MagangWorkflow, OpsiMagang, opsiMagang, seleksiMagang, validasiNdaMagang, sahkanMagang, aturPengingatMagang, aktivasiAkunMagang } from "@/services/magangWorkflow";
 import { api } from "@/services/api";
-import { MagangDokumenPanel, escapeMagangHtml as esc } from "./MagangDokumenPanel";
+import { MagangDokumenPanel } from "./MagangDokumenPanel";
+import { MagangPenilaianPanel } from "./MagangPenilaianPanel";
 import axios from "axios";
 import { TautanDokumenMagang } from "./TautanDokumenMagang";
 
 export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = "semua" }: {
   section?: "semua" | "proses" | "dokumen" | "penilaian";
-  participant: MagangWorkflow; onSaved: () => Promise<void>; onNda: () => void;
+  participant: MagangWorkflow; onSaved: (participant?: MagangWorkflow) => Promise<void>; onNda: () => void;
 }) {
   const proses = section === "semua" || section === "proses";
   const dokumen = section === "semua" || section === "dokumen";
@@ -22,14 +23,6 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
   const [note, setNote] = useState(p.catatan_seleksi || "");
   const [mentorId, setMentorId] = useState(String(p.mentor_id || user?.id || ""));
   const [matchingMajor, setMatchingMajor] = useState(false);
-  const [values, setValues] = useState<NilaiMagang[]>(p.penilaian?.length ? p.penilaian : [{ aspek: "", nilai: "", skala: "" }]);
-  const [format, setFormat] = useState(p.format_penilaian || (p.penilaian?.length ? "Format sebelumnya" : ""));
-  const [evaluationNote, setEvaluationNote] = useState(p.catatan_penilaian || "");
-  const [campusRequired, setCampusRequired] = useState(!!p.kampus_perlu_input);
-  const [campusDone, setCampusDone] = useState(!!p.kampus_sudah_input);
-  const [campusLink, setCampusLink] = useState(p.kebutuhan_kampus?.link || "");
-  const [campusGuide, setCampusGuide] = useState(p.kebutuhan_kampus?.panduan || "");
-  const [campusFile, setCampusFile] = useState<File | null>(null);
   const [notice, setNotice] = useState("");
   const [days, setDays] = useState((p.pengingat_hari ?? [14, 7]).join(", "));
   const [number, setNumber] = useState("");
@@ -38,8 +31,6 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const periodEnded = p.tgl_selesai?.slice(0, 10) <= today;
   const ndaBlocks = !!options?.nda_wajib_sebelum_penilaian && !p.nda_validated_at;
-  const totalWeight = values.reduce((sum, row) => sum + (row.bobot === undefined ? 0 : Number(row.bobot)), 0);
-  const weightedTotal = values.reduce((sum, row) => sum + (row.bobot === undefined ? 0 : Number(row.nilai || 0) * Number(row.bobot) / 100), 0);
   const mentor = options?.mentors.find(m => m.id === Number(mentorId));
   const button = "rounded-lg bg-blue-700 text-white px-3 py-2 text-sm disabled:opacity-50";
   const field = "mt-1.5 block w-full rounded-xl border border-slate-200 bg-white p-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900";
@@ -59,15 +50,12 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
     catch (err) { setError(axios.isAxiosError(err) ? err.response?.data?.message || "Tindakan gagal disimpan." : "Tindakan gagal disimpan."); }
     finally { setBusy(false); }
   };
-  const printGrades = () => {
-    const popup = window.open("", "_blank");
-    if (!popup) { setError("Izinkan pop-up untuk mencetak lembar nilai."); return; }
-    popup.document.write(`<html lang="id"><head><title>Lembar nilai magang</title><style>body{font-family:Arial;padding:40px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:12px;text-align:left}</style></head><body><h1>Lembar Nilai Magang</h1><p>${esc(p.nama)} · ${esc(p.nim)} · ${esc(p.nama_kampus)}</p><p>Format: ${esc(p.format_penilaian || "Format sebelumnya")}</p><table><tr><th>Aspek</th><th>Nilai</th><th>Bobot %</th><th>Nilai × bobot</th><th>Skala / keterangan</th></tr>${(p.penilaian ?? []).map(row => `<tr><td>${esc(row.aspek)}</td><td>${esc(row.nilai)}</td><td>${esc(row.bobot ?? "—")}</td><td>${row.bobot !== undefined ? (Number(row.nilai) * row.bobot / 100).toFixed(2) : "—"}</td><td>${esc(row.skala || "—")}</td></tr>`).join("")}</table>${p.ringkasan_nilai ? `<p>Total nilai terbobot: ${esc(p.ringkasan_nilai.total_terbobot)} · Total bobot: ${esc(p.ringkasan_nilai.total_bobot)}% (tidak dinormalisasi)</p>` : ""}<p>${esc(p.catatan_penilaian)}</p><p>Dokumen hasil evaluasi. Pengesahan mengikuti prosedur dinas. Kebutuhan input pada sistem kampus tetap mengikuti ketentuan kampus.</p></body></html>`);
-    popup.document.close(); popup.print();
-  };
-  return <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 [&_form]:rounded-2xl [&_form]:bg-slate-50/60 [&_form]:p-4 dark:[&_form]:bg-slate-800/40">
-    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{section === "dokumen" ? "Dokumen peserta" : section === "penilaian" ? "Evaluasi dan penilaian" : "Pengelolaan magang"}</h3>
-    <p className="text-sm text-slate-500">{section === "dokumen" ? "Berkas pendaftaran, NDA, dan dokumen akhir dalam satu tempat." : section === "penilaian" ? "Kelola penilaian sesuai format yang digunakan peserta." : "Tinjau pendaftaran, kelola akun, dan pantau tindak lanjut magang."}</p>
+  const registrationFiles = p.lampiran_pendaftaran?.filter(file => file.jenis !== "pedoman_kampus");
+  return <section className={section === "penilaian" ? "space-y-4" : "space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6 [&_form]:rounded-2xl [&_form]:bg-slate-50/60 [&_form]:p-4 dark:[&_form]:bg-slate-800/40"}>
+    {section !== "penilaian" && <>
+      <h3 className="text-lg font-bold text-slate-900 dark:text-white">{section === "dokumen" ? "Dokumen peserta" : "Pengelolaan magang"}</h3>
+      <p className="text-sm text-slate-500">{section === "dokumen" ? "Berkas pendaftaran, NDA, dan dokumen akhir dalam satu tempat." : "Tinjau pendaftaran, kelola akun, dan pantau tindak lanjut magang."}</p>
+    </>}
     {section === "semua" && <dl className="grid grid-cols-2 gap-2 text-sm">
       <dt>Akun login</dt><dd>{p.email_login || "Dibuat saat approval"}{p.user_id ? " · aktif" : " · menunggu approval mentor"}</dd>
       <dt>NIM / NIS</dt><dd>{p.nim || "Belum dilengkapi"}</dd>
@@ -79,12 +67,12 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
       <dt>NDA</dt><dd>{p.nda_validated_at ? "Tervalidasi" : p.nda_file ? "Menunggu pemeriksaan" : "Belum diunggah"}</dd>
       <dt>Referensi draf NDA</dt><dd>{p.nomor_nda || "—"}</dd>
     </dl>}
-    {dokumen && (p.cv_magang || !!p.lampiran_pendaftaran?.length) && (
+    {dokumen && (p.cv_magang || !!registrationFiles?.length) && (
       <div className="space-y-2.5">
         <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Berkas pendaftaran</h4>
         {p.cv_magang && <TautanDokumenMagang label="Curriculum vitae (CV)" href={p.cv_magang} />}
-        {p.lampiran_pendaftaran?.map(file => (
-          <TautanDokumenMagang key={file.jenis} label={file.label} filename={file.nama} href={file.url} authenticated />
+        {registrationFiles?.map(file => (
+          <TautanDokumenMagang key={file.jenis} label={file.label} downloadFilename={file.nama} href={file.url} authenticated />
         ))}
       </div>
     )}
@@ -123,59 +111,17 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
         <p className="text-xs text-slate-600">Pengingat hanya tampil pada dashboard dan detail peserta. Belum dikirim melalui email atau WhatsApp. Atur kapan pengingat ditampilkan.</p>
         <button disabled={busy} className={button}>Simpan pengingat</button>
       </form>}
-      {penilaian && <div className="space-y-3 rounded-xl border p-4">
-        <h4 className="font-semibold">Kebutuhan penilaian dari kampus</h4>
-        {p.kebutuhan_kampus?.link && <a className="block text-sm text-blue-700 underline" href={p.kebutuhan_kampus.link} target="_blank" rel="noopener noreferrer">Buka tautan penilaian kampus</a>}
-        {p.kebutuhan_kampus?.panduan && <p className="whitespace-pre-wrap text-sm">{p.kebutuhan_kampus.panduan}</p>}
-        {p.lampiran_pendaftaran?.filter(f => f.jenis === "pedoman_kampus").map(f => <button key={f.jenis} className="text-sm text-blue-700 underline" onClick={() => action(async () => { const res = await api.get(f.url, { responseType: "blob" }); const url = URL.createObjectURL(res.data); const a = document.createElement("a"); a.href = url; a.download = f.nama; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); })}>Unduh {f.nama}</button>)}
-        {canManage && <form className="space-y-3" onSubmit={e => { e.preventDefault(); action(() => { const data = new FormData(); data.append("link", campusLink); data.append("panduan", campusGuide); if (campusFile) data.append("dokumen", campusFile); return api.post(`/magang/${p.id}/kebutuhan-kampus`, data); }); }}>
-          <label className="block text-sm">Tautan formulir/sistem kampus<input type="url" maxLength={2000} value={campusLink} onChange={e => setCampusLink(e.target.value)} className={field} placeholder="https://…" /></label>
-          <label className="block text-sm">Detail permintaan dan pedoman/panduan<textarea maxLength={10000} value={campusGuide} onChange={e => setCampusGuide(e.target.value)} className={field} placeholder="Aspek, skala, cara pengisian, tenggat, dan petunjuk pengumpulan dari kampus" /></label>
-          <label className="block text-sm">Dokumen/formulir/pedoman kampus (PDF/DOC/DOCX, maksimal 10 MB)<input type="file" accept=".pdf,.doc,.docx" onChange={e => setCampusFile(e.target.files?.[0] || null)} className={field} /></label>
-          <button disabled={busy} className={button}>Simpan kebutuhan kampus</button>
-        </form>}
-      </div>}
-      {penilaian && !p.disahkan_at && canManage && <form className="space-y-3 border-t pt-3" onSubmit={e => {
-        e.preventDefault(); action(() => nilaiMagang(p.id, { penilaian: values, format_penilaian: format, catatan_penilaian: evaluationNote, kampus_perlu_input: campusRequired, kampus_sudah_input: campusDone }));
-      }}>
-        <h4 className="font-semibold">Evaluasi sesuai format dinas atau kampus</h4>
-        <p className="text-xs text-slate-600">Aspek dan skala dapat disesuaikan. Pilih preset Telkom jika sesuai, atau isi format lain. Preset Telkom bukan rubrik resmi seluruh Diskominfo.</p>
-        {!periodEnded && <p className="text-sm text-amber-800">Penilaian dapat disimpan setelah periode magang selesai.</p>}
-        {ndaBlocks && <p className="text-sm text-amber-800">Konfigurasi saat ini mensyaratkan NDA tervalidasi sebelum penilaian.</p>}
-        <label className="block text-sm">Pilih format penilaian<select className={field} value={format.startsWith("Telkom University") ? "telkom" : "lainnya"} onChange={e => {
-          if (values.some(row => row.nilai) && !confirm("Ganti format dan kosongkan nilai yang sedang diisi?")) return;
-          if (e.target.value === "telkom") { setFormat("Telkom University — Pembimbing Lapangan KPPM"); setValues((options?.rubrik_telkom ?? []).map(row => ({ ...row, nilai: "", skala: "0–100" }))); }
-          else { setFormat("Format kampus peserta"); setValues([{ aspek: "", nilai: "", skala: "" }]); }
-        }}><option value="lainnya">Format kampus / format lainnya</option><option value="telkom">Telkom University — 8 indikator</option></select></label>
-        <p className="text-xs text-slate-600">Bobot contoh Telkom berjumlah 45%. Hasilnya adalah kontribusi nilai pembimbing lapangan; tidak dinormalisasi menjadi 100%.</p>
-        <label className="block text-sm">Nama format / acuan penilaian<input required maxLength={255} value={format} onChange={e => setFormat(e.target.value)} placeholder="Contoh: format kampus peserta, versi atau tahun" className={field} /></label>
-        {values.map((row, index) => <fieldset key={index} className="space-y-2 rounded-lg border bg-white p-3">
-          <legend className="text-sm">Aspek {index + 1}</legend>
-          <select aria-label={`Pilih aspek ${index + 1}`} className={field} value={(options?.rubrik_telkom ?? []).some(v => v.aspek === row.aspek) ? row.aspek : ""} onChange={e => { const preset = options?.rubrik_telkom.find(v => v.aspek === e.target.value); setValues(values.map((v, i) => i === index ? { ...v, aspek: preset?.aspek || "", bobot: preset?.bobot, skala: preset ? "0–100" : "" } : v)); }}><option value="">Aspek lainnya (isi di bawah)</option>{options?.rubrik_telkom.map(v => <option key={v.aspek} value={v.aspek}>{v.aspek}</option>)}</select>
-          {([['aspek', 'Nama aspek'], ['nilai', 'Nilai'], ['skala', 'Skala / keterangan (opsional)']] as const).map(([key, label]) => <label key={key} className="block text-sm">{label}<input type={key === "nilai" && row.bobot !== undefined ? "number" : "text"} min={key === "nilai" && row.bobot !== undefined ? 0 : undefined} max={key === "nilai" && row.bobot !== undefined ? 100 : undefined} step="0.01" required={key !== 'skala'} maxLength={255} value={row[key] || ""} onChange={e => setValues(values.map((v, i) => i === index ? { ...v, [key]: e.target.value } : v))} className={field} /></label>)}
-          <label className="block text-sm">Bobot % (opsional)<input type="number" min={0} max={100} step="0.01" value={row.bobot ?? ""} onChange={e => setValues(values.map((v, i) => i === index ? { ...v, bobot: e.target.value === "" ? undefined : Number(e.target.value) } : v))} className={field} /></label>
-          {row.bobot !== undefined && <p className="text-xs">Nilai × bobot: {Number.isFinite(Number(row.nilai)) ? (Number(row.nilai) * row.bobot / 100).toFixed(2) : "Isi nilai angka 0–100"}</p>}
-          {values.length > 1 && <button type="button" onClick={() => setValues(values.filter((_, i) => i !== index))} className="text-sm text-red-700">Hapus aspek</button>}
-        </fieldset>)}
-        <button type="button" disabled={values.length >= 30} onClick={() => setValues([...values, { aspek: "", nilai: "", skala: "" }])} className="text-sm text-blue-700 underline">Tambah aspek</button>
-        {values.some(row => row.bobot !== undefined) && <p className="text-sm font-semibold">Total bobot: {totalWeight}% · Total nilai terbobot: {Number.isFinite(weightedTotal) ? weightedTotal.toFixed(2) : "—"}</p>}
-        <label className="block text-sm">Catatan evaluasi<textarea value={evaluationNote} maxLength={5000} onChange={e => setEvaluationNote(e.target.value)} className={field} /></label>
-        <button disabled={busy || !periodEnded || ndaBlocks || !options} className={button}>Simpan penilaian</button>
-      </form>}
-      {penilaian && p.dinilai_at && <details open={!!user?.is_magang || !!p.disahkan_at} className="rounded-lg border p-3">
-        <summary className="cursor-pointer font-semibold text-sm">Hasil penilaian · {p.format_penilaian || "Format sebelumnya"}</summary>
-        <div className="overflow-x-auto mt-3"><table className="w-full text-sm text-left"><thead><tr><th className="p-2">Indikator</th><th className="p-2">Nilai</th><th className="p-2">Bobot</th><th className="p-2">Nilai × bobot</th></tr></thead>
-          <tbody>{p.penilaian?.map((row, i) => <tr key={i} className="border-t"><td className="p-2">{row.aspek}</td><td className="p-2">{row.nilai}</td><td className="p-2">{row.bobot === undefined ? row.skala || "—" : `${row.bobot}%`}</td><td className="p-2">{row.bobot === undefined ? "—" : (Number(row.nilai) * row.bobot / 100).toFixed(2)}</td></tr>)}</tbody></table></div>
-        {p.ringkasan_nilai && <p className="font-semibold mt-3 text-sm">Total nilai terbobot: {p.ringkasan_nilai.total_terbobot} · Total bobot: {p.ringkasan_nilai.total_bobot}%</p>}
-        {p.catatan_penilaian && <p className="text-sm mt-2">{p.catatan_penilaian}</p>}
-      </details>}
-      {penilaian && p.dinilai_at && <button className={button} onClick={printGrades}>Cetak lembar nilai / simpan PDF</button>}
-      {penilaian && canManage && <form className="space-y-3 border-t pt-3" onSubmit={e => { e.preventDefault(); action(() => aturStatusKampus(p.id, campusRequired, campusDone)); }}>
-        <h4 className="font-semibold text-sm">Kewajiban pada sistem kampus</h4>
-        <label className="flex gap-2 text-sm"><input type="checkbox" checked={campusRequired} onChange={e => { setCampusRequired(e.target.checked); if (!e.target.checked) setCampusDone(false); }} />Kampus memerlukan input atau dokumen tambahan.</label>
-        {campusRequired && <label className="flex gap-2 text-sm"><input type="checkbox" checked={campusDone} onChange={e => setCampusDone(e.target.checked)} />Input atau dokumen tambahan kampus sudah diselesaikan.</label>}
-        <button disabled={busy} className={button}>Simpan status kampus</button>
-      </form>}
+      {penilaian && <MagangPenilaianPanel
+        participant={p}
+        isParticipant={!!user?.is_magang && p.user_id === user.id}
+        isAdmin={!!user && !user.is_magang && user.role === "admin"}
+        isAssignedMentor={!!user && !user.is_magang && p.mentor_id === user.id}
+        canGrade={!!user && !user.is_magang && (isAdminAptika || user.role === "admin" || p.mentor_id === user.id)}
+        periodEnded={periodEnded}
+        ndaBlocks={ndaBlocks}
+        optionsReady={!!options}
+        onSaved={onSaved}
+      />}
       {dokumen && <MagangDokumenPanel participant={p} isAdmin={user?.role === "admin"} canManage={canManage} busy={busy} action={action} />}
       {dokumen && p.dinilai_at && !p.disahkan_at && user?.role === "admin" && <form className="space-y-3 border-t pt-3" onSubmit={e => { e.preventDefault(); if (!file) return; const data = new FormData(); data.append("nomor_sertifikat", number); data.append("sertifikat_file", file); action(() => sahkanMagang(p.id, data)); }}>
         <h4 className="font-semibold">Catat pengesahan sertifikat</h4>

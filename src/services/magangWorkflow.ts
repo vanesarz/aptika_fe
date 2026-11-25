@@ -1,6 +1,14 @@
 import { api } from "./api";
 
-export interface NilaiMagang { aspek: string; nilai: string; skala?: string; bobot?: number }
+export type MetodeBobotMagang = "sama" | "berbeda";
+export interface AspekPenilaianMagang {
+  aspek: string;
+  skala?: string | null;
+  nilai_min?: number | string | null;
+  nilai_maks?: number | string | null;
+  bobot?: number | string | null;
+}
+export interface NilaiMagang extends AspekPenilaianMagang { nilai: string; nilai_terbobot?: number | null }
 export type JenisDokumenMagang = "penerimaan" | "selesai" | "penilaian";
 export interface DokumenMagang {
   jenis: JenisDokumenMagang;
@@ -24,7 +32,7 @@ export interface MagangWorkflow {
   user_id?: number;
   email_login?: string;
   lampiran_pendaftaran?: { jenis: string; nama: string; label: string; url: string }[];
-  ringkasan_nilai?: { total_bobot: number; total_terbobot: number };
+  ringkasan_nilai?: { rata_rata: number } | { total_bobot: number; total_terbobot: number | null };
   nama_kampus?: string;
   bidang_id?: number;
   nim?: string;
@@ -40,7 +48,10 @@ export interface MagangWorkflow {
   nda_file?: string;
   nda_validated_at?: string;
   penilaian?: NilaiMagang[];
-  kebutuhan_kampus?: { link?: string; panduan?: string };
+  kebutuhan_kampus?: { link?: string; panduan?: string } | null;
+  metode_bobot?: MetodeBobotMagang | null;
+  rubrik_penilaian?: AspekPenilaianMagang[];
+  versi_rubrik_penilaian?: string | null;
   format_penilaian?: string;
   catatan_penilaian?: string;
   kampus_perlu_input?: boolean;
@@ -67,14 +78,14 @@ export const opsiMagang = async (bidang_id?: number): Promise<OpsiMagang> =>
 export const seleksiMagang = (id: number, status_seleksi: string, catatan_seleksi: string, mentor_id?: number, jurusan_sesuai?: boolean) =>
   api.patch(`/magang/${id}/seleksi`, { status_seleksi, catatan_seleksi, mentor_id, jurusan_sesuai });
 export const validasiNdaMagang = (id: number) => api.post(`/magang/${id}/validasi-nda`);
-export const nilaiMagang = (id: number, payload: {
-  penilaian: NilaiMagang[]; format_penilaian: string; catatan_penilaian: string;
-  kampus_perlu_input: boolean; kampus_sudah_input: boolean;
-}) => api.post(`/magang/${id}/penilaian`, payload);
+export const simpanKebutuhanKampus = (id: number, payload: FormData | { metode_bobot: MetodeBobotMagang; aspek_penilaian: AspekPenilaianMagang[] }) =>
+  api.post(`/magang/${id}/kebutuhan-kampus`, payload);
+export const nilaiMagang = (id: number, versi_rubrik_penilaian: string, nilai: string[]) =>
+  api.post(`/magang/${id}/penilaian`, { versi_rubrik_penilaian, nilai });
 export const sahkanMagang = (id: number, payload: FormData) => api.post(`/magang/${id}/pengesahan`, payload);
 export const simpanDokumenMagang = (id: number, payload: FormData) => api.post(`/magang/${id}/dokumen`, payload);
 export const aturPengingatMagang = (id: number, pengingat_hari: number[]) => api.patch(`/magang/${id}/pengingat`, { pengingat_hari });
-export const aturStatusKampus = (id: number, kampus_perlu_input: boolean, kampus_sudah_input: boolean) =>
-  api.patch(`/magang/${id}/kampus`, { kampus_perlu_input, kampus_sudah_input });
+export const tandaiInputKampusSelesai = (id: number) =>
+  api.patch(`/magang/${id}/kampus`, { kampus_sudah_input: true });
 
 export const aktivasiAkunMagang = (id: number) => api.post(`/magang/${id}/akun`);

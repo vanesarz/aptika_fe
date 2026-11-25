@@ -7,9 +7,9 @@ import { api } from "@/services/api";
 const buttonClass = "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50 dark:border-slate-700 dark:text-blue-300 dark:hover:bg-slate-800";
 const inlineTypes = ["application/pdf", "image/jpeg", "image/png"];
 
-export function TautanDokumenMagang({ label, filename, href, authenticated = false }: {
+export function TautanDokumenMagang({ label, downloadFilename, href, authenticated = false }: {
   label: string;
-  filename?: string;
+  downloadFilename?: string;
   href: string;
   authenticated?: boolean;
 }) {
@@ -51,7 +51,7 @@ export function TautanDokumenMagang({ label, filename, href, authenticated = fal
       } else {
         const pathName = new URL(href, window.location.href).pathname.split("/").pop();
         const link = document.createElement("a");
-        link.download = filename || (pathName ? decodeURIComponent(pathName) : "") || label;
+        link.download = downloadFilename || (pathName ? decodeURIComponent(pathName) : "") || label;
         const url = URL.createObjectURL(file);
         link.href = url;
         link.click();
@@ -74,10 +74,7 @@ export function TautanDokumenMagang({ label, filename, href, authenticated = fal
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
           <FileText size={17} aria-hidden="true" />
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="break-words text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</p>
-          {filename && <p className="mt-0.5 break-words text-xs text-slate-600 dark:text-slate-400">{filename}</p>}
-        </div>
+        <p className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</p>
         <div className="flex shrink-0 gap-1.5">
           {authenticated ? (
             <button type="button" className={buttonClass} title={openLabel} aria-label={openLabel} disabled={busy} onClick={() => void transfer("open")}>

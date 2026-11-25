@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TautanDokumenMagang } from "./TautanDokumenMagang";
+import { gayaKopSuratMagang, kopSuratMagang, namaDinasMagang } from "./kopSuratMagang";
 import { MagangWorkflow, DokumenMagang, JenisDokumenMagang, simpanDokumenMagang } from "@/services/magangWorkflow";
 
 export const escapeMagangHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -32,8 +33,45 @@ function DocumentForm({ participant: p, jenis, document: d, isAdmin, canManage, 
   const print = () => {
     const popup = window.open("", "_blank");
     if (!popup) { alert("Izinkan pop-up untuk mencetak draf."); return; }
-    popup.document.write(`<html lang="id"><head><title>Draf ${labels[jenis]}</title><style>body{font-family:Arial;padding:48px;line-height:1.8}h1{font-size:22px}dt{font-weight:bold}</style></head><body><p><b>DRAF — BELUM DISAHKAN</b></p><h1>${labels[jenis]}</h1><p>Dinas Komunikasi dan Informatika Provinsi Jawa Barat</p><dl><dt>Nama peserta</dt><dd>${escapeMagangHtml(p.nama)}</dd><dt>NIM / NIS</dt><dd>${escapeMagangHtml(p.nim)}</dd><dt>Institusi</dt><dd>${escapeMagangHtml(p.nama_kampus)}</dd><dt>Jurusan</dt><dd>${escapeMagangHtml(p.jurusan)}</dd><dt>Periode</dt><dd>${escapeMagangHtml(p.tgl_mulai)} s.d. ${escapeMagangHtml(p.tgl_selesai)}</dd></dl><p>${jenis === "penerimaan" ? "Data di atas adalah peserta yang diterima pada proses seleksi magang." : "Draf ini disiapkan untuk administrasi akhir periode magang peserta di atas."}</p><p>Nomor surat, isi, tanggal, dan pejabat penandatangan mengikuti template serta prosedur dinas. Draf ini belum merupakan dokumen resmi.</p></body></html>`);
-    popup.document.close(); popup.print();
+    const penerimaan = jenis === "penerimaan";
+    const kop = penerimaan
+      ? kopSuratMagang(window.location.origin, `<h1>SURAT PENERIMAAN MAGANG</h1>${namaDinasMagang}`)
+      : `<p><b>DRAF — BELUM DISAHKAN</b></p><h1>${labels[jenis]}</h1><p>Dinas Komunikasi dan Informatika Provinsi Jawa Barat</p>`;
+
+    popup.document.write(`
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+        <meta charset="UTF-8">
+        <title>Draf ${labels[jenis]}</title>
+        <style>
+          ${penerimaan ? `
+            ${gayaKopSuratMagang}
+            body { font: 10pt/1.45 Arial, Helvetica, sans-serif; margin: 0; }
+            .title-header h1 { font: inherit; margin: 0; }
+          ` : `
+            body { font-family: Arial; padding: 48px; line-height: 1.8; }
+            h1 { font-size: 22px; }
+          `}
+          dt { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        ${kop}
+        <dl>
+          <dt>Nama peserta</dt><dd>${escapeMagangHtml(p.nama)}</dd>
+          <dt>NIM / NIS</dt><dd>${escapeMagangHtml(p.nim)}</dd>
+          <dt>Institusi</dt><dd>${escapeMagangHtml(p.nama_kampus)}</dd>
+          <dt>Jurusan</dt><dd>${escapeMagangHtml(p.jurusan)}</dd>
+          <dt>Periode</dt><dd>${escapeMagangHtml(p.tgl_mulai)} s.d. ${escapeMagangHtml(p.tgl_selesai)}</dd>
+        </dl>
+        <p>${penerimaan ? "Data di atas adalah peserta yang diterima pada proses seleksi magang." : "Draf ini disiapkan untuk administrasi akhir periode magang peserta di atas."}</p>
+        <p>Nomor surat, isi, tanggal, dan pejabat penandatangan mengikuti template serta prosedur dinas. Draf ini belum merupakan dokumen resmi.</p>
+        <script>window.onload = function () { window.print(); };</script>
+      </body>
+      </html>
+    `);
+    popup.document.close();
   };
   return <details className="rounded-lg border bg-white p-3">
     <summary className="cursor-pointer text-sm font-semibold">{labels[jenis]} · {d?.status.replaceAll("_", " ") || "belum diproses"}</summary>

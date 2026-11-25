@@ -5,12 +5,13 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { Users, UserCheck, Eye, Edit, Pencil, Trash2, Plus, Printer, Upload, Download, FileText, Search, RotateCcw, GraduationCap, ClipboardList, CheckCircle2, Award, ArrowDownRight, ClipboardCheck } from "lucide-react";
-import { getMagangList, deleteMagang, updateMagang, uploadMagangNda, getBidangs } from "@/services/api";
+import { getMagangList, getMagangById, deleteMagang, updateMagang, uploadMagangNda, getBidangs } from "@/services/api";
 import { IdentitasMagangFields, emptyIdentitasMagang, appendIdentitasMagang } from "@/components/magang/IdentitasMagangFields";
 import { FormPendaftaranMagang } from "@/components/magang/FormPendaftaranMagang";
 import { Modal } from "@/components/ui/Modal";
 import { MagangDetailPeserta } from "@/components/magang/MagangDetailPeserta";
 import { SalinLinkPendaftaranMagang } from "@/components/magang/SalinLinkPendaftaranMagang";
+import { gayaKopSuratMagang, kopSuratMagang, namaDinasMagang } from "@/components/magang/kopSuratMagang";
 import { SortMagang, sortMagang } from "@/components/magang/sortMagang";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -200,6 +201,8 @@ export default function MagangDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"view" | "edit" | "add">("add");
   const [selectedMagang, setSelectedMagang] = useState<any>(null);
+  const [detailStatus, setDetailStatus] = useState<"loading" | "ready" | "error">("loading");
+  const detailRequest = useRef<symbol | null>(null);
 
   // NDA Modal state
   const [isNdaModalOpen, setIsNdaModalOpen] = useState(false);
@@ -664,6 +667,30 @@ export default function MagangDashboard() {
 
   const handleOpenModal = (mode: "view" | "edit" | "add", data?: any) => {
     setModalMode(mode);
+    setIsModalOpen(true);
+    detailRequest.current = null;
+    if (mode === "view") {
+      if (!data) {
+        setDetailStatus("error");
+        return;
+      }
+      const request = Symbol();
+      detailRequest.current = request;
+      setDetailStatus("loading");
+      void getMagangById(data.id).then(response => {
+        if (detailRequest.current !== request) return;
+        if (!response.data) {
+          setDetailStatus("error");
+          return;
+        }
+        setSelectedMagang(response.data);
+        setMagangs(current => current.map(participant => participant.id === response.data.id ? response.data : participant));
+        setDetailStatus("ready");
+      }).catch(() => {
+        if (detailRequest.current === request) setDetailStatus("error");
+      });
+      return;
+    }
     setSelectedMagang(data || null);
     if (data && mode !== "add") {
       setFormData({
@@ -681,7 +708,6 @@ export default function MagangDashboard() {
       });
     }
     setCvFile(null);
-    setIsModalOpen(true);
   };
 
   const handleOpenNdaModal = () => {
@@ -718,7 +744,6 @@ export default function MagangDashboard() {
     if (selected.status_seleksi !== "diterima") { alert("Peserta harus diterima sebelum mencetak NDA."); return; }
     const fullDateText = formatIndonesianFullDateText(ndaFormData.tanggal);
     const generatedNomorSurat = String(selected.nomor_nda || "DRAF BELUM DISAHKAN");
-    const logoUrl = typeof window !== "undefined" ? window.location.origin + "/logo-jabar.png" : "/logo-jabar.png";
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -733,10 +758,7 @@ export default function MagangDashboard() {
         <meta charset="UTF-8">
         <title></title>
         <style>
-          @page {
-            size: A4;
-            margin: 2cm 20mm 15mm 20mm;
-          }
+          ${gayaKopSuratMagang}
           *, *:before, *:after {
             box-sizing: border-box;
           }
@@ -748,26 +770,6 @@ export default function MagangDashboard() {
             margin: 0;
             padding: 0;
             background-color: #fff;
-          }
-          .logo-container {
-            text-align: center;
-            margin-bottom: 12px;
-          }
-          .logo-container img {
-            width: 80px;
-            height: auto;
-          }
-          .title-header {
-            text-align: center;
-            font-weight: bold;
-            font-size: 11pt;
-            line-height: 1.35;
-            margin-bottom: 18px;
-          }
-          .title-header .doc-no {
-            margin-top: 8px;
-            font-size: 10pt;
-            font-weight: bold;
           }
           p {
             margin-top: 0;
@@ -837,20 +839,15 @@ export default function MagangDashboard() {
       </head>
       <body>
 
-        <div class="logo-container">
-          <img src="${logoUrl}" alt="Logo Jawa Barat" />
-        </div>
-
-        <div class="title-header">
-          <strong>DRAF — BELUM DISAHKAN</strong><br>PERJANJIAN<br>
+        ${kopSuratMagang(window.location.origin, `PERJANJIAN<br>
           LARANGAN PENGUNGKAPAN DAN KERAHASIAAN<br>
           ANTARA<br>
-          DINAS KOMUNIKASI DAN INFORMATIKA PROVINSI JAWA BARAT<br>
+          ${namaDinasMagang}<br>
           DENGAN<br>
           PESERTA MAGANG<br>
           ${escapePrintHtml(String(rawSelected.nama_kampus || "").toUpperCase())}<br>
           <div class="doc-no">${generatedNomorSurat}</div>
-        </div>
+        `)}
 
         <p>
           Perjanjian Larangan Pengungkapan dan Kerahasiaan (untuk selanjutnya disebut sebagai "Perjanjian") ini diadakan dan ditandatangani pada hari ${fullDateText}, antara:
@@ -1490,14 +1487,24 @@ export default function MagangDashboard() {
       {/* ── MODAL FORM ── */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { detailRequest.current = null; setIsModalOpen(false); }}
         title={modalMode === "add" ? "Tambah Data Magang" : modalMode === "edit" ? "Edit Data Magang" : "Detail Peserta Magang"}
         size="xl"
         allowFullscreen={modalMode === "view"}
       >
-        {modalMode === "view" && selectedMagang ? (
-          <MagangDetailPeserta key={selectedMagang.id} participant={selectedMagang}
-            onSaved={async () => { setIsModalOpen(false); await fetchData(); }}
+        {modalMode === "view" ? (
+          detailStatus === "loading" ? <p role="status" className="p-4 text-sm">Memuat detail peserta…</p>
+            : detailStatus === "error" || !selectedMagang ? <p role="alert" className="p-4 text-sm text-red-700">Detail peserta gagal dimuat. Tutup dan buka kembali detail untuk mencoba lagi.</p>
+            : <MagangDetailPeserta key={selectedMagang.id} participant={selectedMagang}
+            onSaved={async (updated) => {
+              if (updated) {
+                setSelectedMagang((current: { id: number } | null) => current?.id === updated.id ? updated : current);
+                setMagangs(current => current.map(participant => participant.id === updated.id ? updated : participant));
+                return;
+              }
+              setIsModalOpen(false);
+              await fetchData();
+            }}
             onNda={() => { setIsModalOpen(false); handleOpenNdaModalForMagang(selectedMagang.id); }}
             onUploadNda={() => { setIsModalOpen(false); handleOpenUploadNdaModal(selectedMagang); }}
             onPrintCertificate={() => handlePrintCertificate(selectedMagang)} />

@@ -17,7 +17,7 @@ const formatTanggal = new Intl.DateTimeFormat("id-ID", {
   day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
 });
 
-function TautanLampiran({ label, file }: LampiranPendaftaran) {
+function TautanLampiran({ label, file, showFilename }: LampiranPendaftaran & { showFilename: boolean }) {
   const link = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
@@ -36,8 +36,8 @@ function TautanLampiran({ label, file }: LampiranPendaftaran) {
       className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:border-slate-700 dark:hover:bg-slate-800">
       <FileText size={17} aria-hidden="true" className="shrink-0 text-blue-600 dark:text-blue-400" />
       <span className="min-w-0 flex-1">
-        <span className="block text-xs text-slate-500 dark:text-slate-400">{label}</span>
-        <span className="block break-words text-sm font-medium text-slate-800 dark:text-slate-100">{file.name}</span>
+        <span className={showFilename ? "block text-xs text-slate-500 dark:text-slate-400" : "block text-sm font-semibold text-slate-800 dark:text-slate-100"}>{label}</span>
+        {showFilename && <span className="block break-words text-sm font-medium text-slate-800 dark:text-slate-100">{file.name}</span>}
       </span>
       <ArrowUpRight size={16} aria-hidden="true" className="shrink-0 text-slate-500 dark:text-slate-400" />
       <span className="sr-only"> (buka di tab baru)</span>
@@ -126,12 +126,12 @@ export function RingkasanPendaftaran({ data, receipt, photo, headingRef }: {
             )}
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Pas foto</p>
-              <p className="break-words text-xs text-slate-500 dark:text-slate-400">{photo?.name ?? "Belum ditambahkan"}</p>
+              {(!receipt || !photo) && <p className="break-words text-xs text-slate-500 dark:text-slate-400">{photo?.name ?? "Belum ditambahkan"}</p>}
             </div>
           </div>
           <ul className="space-y-2">
             {documents.map(({ label, file }) => (
-              <li key={label}><TautanLampiran label={label} file={file} /></li>
+              <li key={label}><TautanLampiran label={label} file={file} showFilename={!receipt} /></li>
             ))}
           </ul>
         </div>
