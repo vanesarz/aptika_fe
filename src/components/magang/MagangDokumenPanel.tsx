@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TautanDokumenMagang } from "./TautanDokumenMagang";
+import { FormValidasiMagang } from "./FormValidasiMagang";
 import { gayaKopSuratMagang, kopSuratMagang, namaDinasMagang } from "./kopSuratMagang";
 import { MagangWorkflow, DokumenMagang, JenisDokumenMagang, simpanDokumenMagang } from "@/services/magangWorkflow";
 
@@ -79,7 +80,7 @@ function DocumentForm({ participant: p, jenis, document: d, isAdmin, canManage, 
       {d?.nomor && <p>Nomor: {d.nomor} · Pengesah: {d.pengesah || "belum dicatat"}</p>}
       {d?.file && <TautanDokumenMagang label={d.status === "disahkan" ? "Dokumen disahkan" : "Berkas sebelumnya (perlu ditinjau)"} href={d.file} />}
       {jenis !== "penilaian" && <button type="button" onClick={print} className="text-blue-700 underline">Cetak draf / simpan PDF</button>}
-      {canManage && d?.status !== "disahkan" && (jenis !== "penilaian" || p.dinilai_at) && <form className="space-y-3" onSubmit={e => {
+      {canManage && d?.status !== "disahkan" && (jenis !== "penilaian" || p.dinilai_at) && <FormValidasiMagang className="space-y-3" onSubmit={e => {
         e.preventDefault(); const data = new FormData(); data.append("jenis", jenis); data.append("status", status);
         if (number) data.append("nomor", number); if (signer) data.append("pengesah", signer);
         data.append("catatan", note); if (file) data.append("file", file);
@@ -93,7 +94,7 @@ function DocumentForm({ participant: p, jenis, document: d, isAdmin, canManage, 
         {status === "disahkan" && <label className="block">Dokumen disahkan (PDF, maks. 10 MB)<input required type="file" accept="application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} className="block w-full py-2" /></label>}
         <label className="block">Catatan<textarea value={note} maxLength={5000} onChange={e => setNote(e.target.value)} className="block w-full border rounded-lg p-2" /></label>
         <button disabled={busy} className="rounded-lg bg-blue-700 text-white px-3 py-2 disabled:opacity-50">Simpan status surat</button>
-      </form>}
+      </FormValidasiMagang>}
       {d?.catatan && <p>Catatan: {d.catatan}</p>}
     </div>
   </details>;

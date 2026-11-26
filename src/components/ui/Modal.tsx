@@ -22,7 +22,7 @@ export default function Modal({
   size = "md",
   allowFullscreen = false,
 }: ModalProps) {
-  const [minimized, setMinimized] = React.useState(false);
+  const [minimized, setMinimized] = React.useState(true);
   const fullscreen = allowFullscreen && !minimized;
   const dialogRef = useDialog(isOpen, onClose);
   const titleId = React.useId();

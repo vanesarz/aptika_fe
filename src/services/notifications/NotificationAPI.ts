@@ -1,32 +1,36 @@
 import { api } from '@/services/api';
 import type { NotificationItem, NotificationListResponse, UnreadCountResponse } from '@/services/notifications/NotificationTypes';
 
-export const getTaskNotifications = async (params?: { limit?: number; offset?: number }) => {
-  const response = await api.get<NotificationListResponse>('/task-management/notifications', { params });
+export const getNotifications = async (params?: { limit?: number; offset?: number }) => {
+  const response = await api.get<NotificationListResponse>('/notifications', { params });
   return response.data;
 };
 
-export const getTaskNotificationUnreadCount = async () => {
-  const response = await api.get<UnreadCountResponse>('/task-management/notifications/unread-count');
+export const getNotificationUnreadCount = async () => {
+  const response = await api.get<UnreadCountResponse>('/notifications/unread-count');
   return response.data;
 };
 
-export const markTaskNotificationAsRead = async (id: number) => {
-  const response = await api.patch(`/task-management/notifications/${id}/read`);
+export const markNotificationAsRead = async (id: number) => {
+  const response = await api.patch(`/notifications/${id}/read`);
   return response.data;
 };
 
-export const markAllTaskNotificationsAsRead = async () => {
-  const response = await api.patch('/task-management/notifications/read-all');
+export const markAllNotificationsAsRead = async () => {
+  const response = await api.patch('/notifications/read-all');
   return response.data;
 };
 
-export const deleteTaskNotification = async (id: number) => {
-  const response = await api.delete(`/task-management/notifications/${id}`);
+export const deleteNotification = async (id: number) => {
+  const response = await api.delete(`/notifications/${id}`);
   return response.data;
 };
 
-export const getTaskNotificationRedirectPath = (notification: NotificationItem) => {
+export const getNotificationRedirectPath = (notification: NotificationItem) => {
+  if (notification.magang?.id || notification.type.startsWith("MAGANG_")) {
+    return "/magang/dashboard";
+  }
+
   if (notification.task?.id && notification.board?.id) {
     return `/manajementugasdigital/board/${notification.board.id}?task=${notification.task.id}`;
   }

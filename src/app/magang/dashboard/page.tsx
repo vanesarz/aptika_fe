@@ -8,6 +8,7 @@ import { Users, UserCheck, Eye, Edit, Pencil, Trash2, Plus, Printer, Upload, Dow
 import { getMagangList, getMagangById, deleteMagang, updateMagang, uploadMagangNda, getBidangs } from "@/services/api";
 import { IdentitasMagangFields, emptyIdentitasMagang, appendIdentitasMagang } from "@/components/magang/IdentitasMagangFields";
 import { FormPendaftaranMagang } from "@/components/magang/FormPendaftaranMagang";
+import { FormValidasiMagang } from "@/components/magang/FormValidasiMagang";
 import { Modal } from "@/components/ui/Modal";
 import { MagangDetailPeserta } from "@/components/magang/MagangDetailPeserta";
 import { SalinLinkPendaftaranMagang } from "@/components/magang/SalinLinkPendaftaranMagang";
@@ -250,7 +251,9 @@ export default function MagangDashboard() {
     item = Object.fromEntries(Object.entries(item).map(([key, value]) => [key, typeof value === "string" ? escapePrintHtml(value) : value]));
 
     const periodText = formatCertificatePeriod(item.tgl_mulai, item.tgl_selesai);
-    const logoUrl = typeof window !== "undefined" ? window.location.origin + "/logo-jabar.png" : "/logo-jabar.png";
+    const logoUrl = typeof window !== "undefined"
+      ? window.location.origin + "/logo-diskominfo-jabar-horizontal.png"
+      : "/logo-diskominfo-jabar-horizontal.png";
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -311,9 +314,19 @@ export default function MagangDashboard() {
             position: absolute;
             top: 0;
             left: 0;
-            bottom: 0;
+            height: 220px;
             width: 14px;
-            background-color: #0F62FE;
+            background-color: #1674BA;
+            z-index: 2;
+          }
+
+          .geo-top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 205px;
+            height: 14px;
+            background-color: #1674BA;
             z-index: 2;
           }
 
@@ -323,11 +336,11 @@ export default function MagangDashboard() {
             left: 14px;
             z-index: 2;
           }
-          .geo-tl .block-teal-1 { position: absolute; top: 12px; left: 0; width: 22px; height: 50px; background-color: #00CBA5; }
-          .geo-tl .block-blue-1 { position: absolute; top: 12px; left: 26px; width: 38px; height: 95px; background-color: #0F62FE; }
-          .geo-tl .block-yellow-1 { position: absolute; top: 38px; left: 68px; width: 44px; height: 35px; background-color: #FFE135; }
-          .geo-tl .block-teal-2 { position: absolute; top: 125px; left: 0; width: 62px; height: 32px; background-color: #00CBA5; }
-          .geo-tl .block-yellow-2 { position: absolute; top: 165px; left: 0; width: 22px; height: 50px; background-color: #FFE135; }
+          .geo-tl .block-teal-1 { position: absolute; top: 12px; left: 0; width: 22px; height: 50px; background-color: #14AF5B; }
+          .geo-tl .block-blue-1 { position: absolute; top: 12px; left: 26px; width: 38px; height: 95px; background-color: #1674BA; }
+          .geo-tl .block-yellow-1 { position: absolute; top: 38px; left: 68px; width: 44px; height: 35px; background-color: #FCDC01; }
+          .geo-tl .block-teal-2 { position: absolute; top: 125px; left: 0; width: 62px; height: 32px; background-color: #14AF5B; }
+          .geo-tl .block-yellow-2 { position: absolute; top: 165px; left: 0; width: 22px; height: 50px; background-color: #FCDC01; }
 
           .geo-br {
             position: absolute;
@@ -335,31 +348,25 @@ export default function MagangDashboard() {
             right: 0;
             z-index: 2;
           }
-          .geo-br .block-yellow-1 { position: absolute; bottom: 215px; right: 14px; width: 45px; height: 35px; background-color: #FFE135; }
-          .geo-br .block-teal-1 { position: absolute; bottom: 175px; right: 14px; width: 120px; height: 35px; background-color: #00CBA5; }
-          .geo-br .block-blue-1 { position: absolute; bottom: 48px; right: 80px; width: 50px; height: 120px; background-color: #0F62FE; }
-          .geo-br .block-yellow-2 { position: absolute; bottom: 110px; right: 14px; width: 60px; height: 38px; background-color: #FFE135; }
-          .geo-br .block-teal-2 { position: absolute; bottom: 14px; right: 14px; width: 45px; height: 90px; background-color: #00CBA5; }
-          .geo-br .block-yellow-3 { position: absolute; bottom: 35px; right: 145px; width: 75px; height: 42px; background-color: #FFE135; }
-          .geo-br .bottom-bar { position: absolute; bottom: 0; right: 0; width: 340px; height: 16px; background-color: #0F62FE; }
-          .geo-br .right-bar { position: absolute; bottom: 0; right: 0; top: 0; width: 14px; background-color: #0F62FE; }
+          .geo-br .block-yellow-1 { position: absolute; bottom: 215px; right: 14px; width: 45px; height: 35px; background-color: #FCDC01; }
+          .geo-br .block-teal-1 { position: absolute; bottom: 175px; right: 14px; width: 120px; height: 35px; background-color: #14AF5B; }
+          .geo-br .block-blue-1 { position: absolute; bottom: 48px; right: 80px; width: 50px; height: 120px; background-color: #1674BA; }
+          .geo-br .block-yellow-2 { position: absolute; bottom: 110px; right: 14px; width: 60px; height: 38px; background-color: #FCDC01; }
+          .geo-br .block-teal-2 { position: absolute; bottom: 14px; right: 14px; width: 45px; height: 90px; background-color: #14AF5B; }
+          .geo-br .block-yellow-3 { position: absolute; bottom: 35px; right: 145px; width: 75px; height: 42px; background-color: #FCDC01; }
+          .geo-br .bottom-bar { position: absolute; bottom: 0; right: 0; width: 340px; height: 16px; background-color: #1674BA; }
+          .geo-br .right-bar { position: absolute; bottom: 0; right: 0; height: 365px; width: 14px; background-color: #1674BA; }
 
           .logo-badge {
             position: absolute;
-            top: 28px;
-            right: 48px;
+            top: 70px;
+            right: 64px;
             z-index: 3;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1.5px solid #e2e8f0;
-            border-radius: 40px;
-            padding: 6px 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
             display: flex;
             align-items: center;
-            gap: 10px;
           }
           .logo-badge img {
-            height: 42px;
+            height: 60px;
             width: auto;
           }
 
@@ -380,7 +387,7 @@ export default function MagangDashboard() {
           .cert-container {
             position: relative;
             z-index: 10;
-            padding: 48px 80px 40px 105px;
+            padding: 160px 80px 40px 130px;
             text-align: left;
             display: flex;
             flex-direction: column;
@@ -389,7 +396,7 @@ export default function MagangDashboard() {
 
           .header-title {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 38pt;
+            font-size: 48pt;
             font-weight: 800;
             color: #081B4B;
             margin: 0 0 2px 0;
@@ -416,11 +423,11 @@ export default function MagangDashboard() {
           }
 
           .cert-body {
-            font-size: 11pt;
+            font-size: 12pt;
             line-height: 1.55;
             color: #1e293b;
-            text-align: left;
-            max-width: 680px;
+            text-align: justify;
+            max-width: 810px;
             margin: 0;
             font-weight: 500;
           }
@@ -443,7 +450,7 @@ export default function MagangDashboard() {
             border: 1.5px solid #1e293b;
             border-radius: 16px;
             padding: 10px 14px;
-            width: 310px;
+            width: 370px;
             background: #ffffff;
             display: flex;
             align-items: center;
@@ -490,8 +497,8 @@ export default function MagangDashboard() {
           }
 
           .gold-medal {
-            width: 82px;
-            height: 82px;
+            width: 100px;
+            height: 100px;
             margin-bottom: 6px;
           }
         </style>
@@ -518,6 +525,7 @@ export default function MagangDashboard() {
           <path d="M-100 500 C200 350, 450 650, 750 450 C950 320, 1100 500, 1200 450" stroke="#CBD5E1" stroke-width="1" fill="none"/>
         </svg>
 
+        <div class="geo-top-bar"></div>
         <div class="geo-left-bar"></div>
 
         <div class="watermark-logo">
@@ -550,11 +558,11 @@ export default function MagangDashboard() {
         <div class="cert-container">
 
           <div>
-            <h1 class="header-title">Draf Sertifikat</h1>
+            <h1 class="header-title">Sertifikat</h1>
             <p class="header-subtitle">Diberikan kepada :</p>
             <div class="recipient-name">${item.nama}</div>
             <div class="cert-body">
-              Yang telah selesai melaksanakan Kerja Praktek di Dinas Komunikasi dan Informatika Provinsi Jawa Barat, pada <strong>${periodText}</strong> dan yang bersangkutan dinyatakan memenuhi persyaratan dan peraturan yang berlaku, sehingga kepadanya diberikan sertifikat.
+              Yang telah selesai melaksanakan Magang di Dinas Komunikasi dan Informatika Provinsi Jawa Barat, pada <strong>${periodText}</strong> dan yang bersangkutan dinyatakan memenuhi persyaratan dan peraturan yang berlaku, sehingga kepadanya diberikan sertifikat.
             </div>
           </div>
 
@@ -563,20 +571,32 @@ export default function MagangDashboard() {
             <div class="esign-box">
               <div class="esign-text">
                 <div class="title-esign">DRAF BELUM DISAHKAN</div>
-                <p>Memerlukan nomor resmi dan pengesahan pejabat berwenang.</p>
+                <p>Memerlukan nomor resmi dan pengesahan pejabat berwenang. QR verifikasi belum tersedia pada draf ini.</p>
               </div>
             </div>
 
             <div class="gold-medal">
               <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="medal-gold" cx="38%" cy="30%" r="70%">
+                    <stop offset="0%" stop-color="#FFF8D6"/>
+                    <stop offset="42%" stop-color="#FBBF24"/>
+                    <stop offset="72%" stop-color="#D97706"/>
+                    <stop offset="100%" stop-color="#92400E"/>
+                  </radialGradient>
+                  <radialGradient id="medal-center" cx="38%" cy="30%" r="70%">
+                    <stop offset="0%" stop-color="#FFFBEB"/>
+                    <stop offset="55%" stop-color="#FDE68A"/>
+                    <stop offset="100%" stop-color="#B45309"/>
+                  </radialGradient>
+                </defs>
                 <path d="M38 65 L28 95 L40 88 L48 95 L43 65 Z" fill="#D97706"/>
                 <path d="M62 65 L57 95 L65 88 L77 95 L67 65 Z" fill="#B45309"/>
-                <circle cx="50" cy="45" r="38" fill="#F59E0B"/>
-                <circle cx="50" cy="45" r="34" fill="#FBBF24"/>
-                <circle cx="50" cy="45" r="30" fill="#F59E0B"/>
-                <circle cx="50" cy="45" r="28" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5"/>
-                <circle cx="50" cy="45" r="22" fill="#F59E0B"/>
-                <path d="M50 29 L54 38 L64 39 L57 46 L59 56 L50 51 L41 56 L43 46 L36 39 L46 38 Z" fill="#FEF3C7"/>
+                <circle cx="50" cy="45" r="38" fill="url(#medal-gold)" stroke="#92400E" stroke-width="1"/>
+                <circle cx="50" cy="45" r="32" fill="none" stroke="#FEF3C7" stroke-opacity=".8" stroke-width="1.5"/>
+                <circle cx="50" cy="45" r="27" fill="url(#medal-center)" stroke="#B45309" stroke-width="1.5"/>
+                <circle cx="50" cy="45" r="22" fill="none" stroke="#D97706" stroke-opacity=".8"/>
+                <path d="M50 29 L54 38 L64 39 L57 46 L59 56 L50 51 L41 56 L43 46 L36 39 L46 38 Z" fill="#B45309"/>
               </svg>
             </div>
 
@@ -1486,6 +1506,7 @@ export default function MagangDashboard() {
 
       {/* ── MODAL FORM ── */}
       <Modal
+        key={isModalOpen ? modalMode : "closed"}
         isOpen={isModalOpen}
         onClose={() => { detailRequest.current = null; setIsModalOpen(false); }}
         title={modalMode === "add" ? "Tambah Data Magang" : modalMode === "edit" ? "Edit Data Magang" : "Detail Peserta Magang"}
@@ -1511,7 +1532,7 @@ export default function MagangDashboard() {
         ) : modalMode === "add" ? (
           <FormPendaftaranMagang onClose={() => setIsModalOpen(false)} onRegistered={fetchData} />
         ) : (
-          <form onSubmit={handleSave} className="space-y-5">
+          <FormValidasiMagang onSubmit={handleSave} className="space-y-5">
             {modalMode === "edit" && selectedMagang?.status_seleksi !== "menunggu" && <label className="block text-sm font-medium">Alasan koreksi identitas / periode
               <textarea required maxLength={2000} value={formData.alasan_perubahan} onChange={e => setFormData({ ...formData, alasan_perubahan: e.target.value })} className="block w-full border rounded-lg p-2 mt-1" />
               <span className="text-xs text-amber-800">Perubahan dicatat. Validasi NDA dan surat terkait perlu ditinjau ulang setelah identitas atau periode dikoreksi.</span>
@@ -1641,7 +1662,7 @@ export default function MagangDashboard() {
                 Simpan Data
               </button>
             </div>
-          </form>
+          </FormValidasiMagang>
         )}
       </Modal>
 
@@ -1652,7 +1673,7 @@ export default function MagangDashboard() {
         title="Cetak Surat NDA (Non-Disclosure Agreement)"
         size="md"
       >
-        <form onSubmit={handlePrintNda} className="space-y-5">
+        <FormValidasiMagang onSubmit={handlePrintNda} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
               Nama Peserta Magang
@@ -1709,7 +1730,7 @@ export default function MagangDashboard() {
               Cetak Dokumen NDA
             </button>
           </div>
-        </form>
+        </FormValidasiMagang>
       </Modal>
 
       {/* ── MODAL UPLOAD NDA ── */}
@@ -1719,7 +1740,7 @@ export default function MagangDashboard() {
         title="Upload Dokumen NDA (Non-Disclosure Agreement)"
         size="md"
       >
-        <form onSubmit={handleSaveNdaUpload} className="space-y-5">
+        <FormValidasiMagang onSubmit={handleSaveNdaUpload} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
               Peserta Magang
@@ -1777,7 +1798,7 @@ export default function MagangDashboard() {
               {isUploadingNda ? "Mengupload..." : "Upload Dokumen"}
             </button>
           </div>
-        </form>
+        </FormValidasiMagang>
       </Modal>
     </div>
   );

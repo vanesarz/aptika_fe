@@ -1,9 +1,9 @@
 "use client";
 
-import { Bell, BellDot, Loader2, RefreshCw, Sparkles } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Bell, BellDot, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTaskNotifications } from "@/services/notifications/NotificationHooks";
+import { useNotifications } from "@/services/notifications/NotificationHooks";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 
 export function NotificationBell() {
@@ -11,11 +11,13 @@ export function NotificationBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const { notifications, unreadCount, isLoading, isError, refresh, markAsRead, markAllAsRead, removeNotification } = useTaskNotifications();
+  const isTaskModule = pathname?.startsWith("/manajementugasdigital") ?? false;
+  const isMagangModule = pathname?.startsWith("/magang") ?? false;
+  const { notifications, unreadCount, isLoading, isError, refresh, markAsRead, markAllAsRead } = useNotifications({
+    enabled: isTaskModule || isMagangModule,
+  });
 
-  const isTaskModule = useMemo(() => pathname?.startsWith("/manajementugasdigital"), [pathname]);
-
-  if (!isTaskModule) {
+  if (!isTaskModule && !isMagangModule) {
     return null;
   }
 
@@ -53,7 +55,6 @@ export function NotificationBell() {
         onRefresh={refresh}
         onMarkAllAsRead={markAllAsRead}
         onMarkAsRead={markAsRead}
-        onDelete={removeNotification}
         onNavigate={(path) => {
           setOpen(false);
           router.push(path);

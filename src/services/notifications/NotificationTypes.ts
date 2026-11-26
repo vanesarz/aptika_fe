@@ -9,6 +9,12 @@ export type NotificationType =
   | "TASK_STATUS_CHANGED"
   | "TASK_DUE_SOON"
   | "BOARD_ARCHIVED"
+  | "MAGANG_NEW_APPLICANT"
+  | "MAGANG_MENTOR_ASSIGNED"
+  | "MAGANG_RATING_PENDING"
+  | "MAGANG_RATING_SUBMITTED"
+  | "MAGANG_GUIDANCE_UPDATED"
+  | "MAGANG_CERTIFICATE_FINALIZED"
   | "SYSTEM";
 
 export interface NotificationUserSummary {
@@ -27,6 +33,11 @@ export interface NotificationTaskSummary {
   status?: string;
 }
 
+export interface NotificationMagangSummary {
+  id: number;
+  nama: string;
+}
+
 export interface NotificationItem {
   id: number;
   type: NotificationType;
@@ -37,6 +48,7 @@ export interface NotificationItem {
   created_at?: string | null;
   board?: NotificationBoardSummary | null;
   task?: NotificationTaskSummary | null;
+  magang?: NotificationMagangSummary | null;
   created_by?: NotificationUserSummary | null;
 }
 

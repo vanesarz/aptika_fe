@@ -1,24 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  deleteTaskNotification,
-  getTaskNotificationUnreadCount,
-  getTaskNotifications,
-  markAllTaskNotificationsAsRead,
-  markTaskNotificationAsRead,
+  deleteNotification,
+  getNotificationUnreadCount,
+  getNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
 } from '@/services/notifications/NotificationAPI';
-import type { NotificationItem } from '@/services/notifications/NotificationTypes';
+const NOTIFICATION_QUERY_KEY = ['notifications'];
+const UNREAD_COUNT_QUERY_KEY = ['notification-unread-count'];
 
-const NOTIFICATION_QUERY_KEY = ['task-notifications'];
-const UNREAD_COUNT_QUERY_KEY = ['task-notification-unread-count'];
-
-export const useTaskNotifications = () => {
+export const useNotifications = ({ enabled = true }: { enabled?: boolean } = {}) => {
   const queryClient = useQueryClient();
   const [visibleCount, setVisibleCount] = useState(10);
 
   const notificationsQuery = useQuery({
     queryKey: [...NOTIFICATION_QUERY_KEY],
-    queryFn: () => getTaskNotifications({ limit: visibleCount, offset: 0 }),
+    queryFn: () => getNotifications({ limit: visibleCount, offset: 0 }),
+    enabled,
     refetchInterval: 30000,
     refetchIntervalInBackground: true,
     staleTime: 10000,
@@ -26,7 +25,8 @@ export const useTaskNotifications = () => {
 
   const unreadCountQuery = useQuery({
     queryKey: [...UNREAD_COUNT_QUERY_KEY],
-    queryFn: getTaskNotificationUnreadCount,
+    queryFn: getNotificationUnreadCount,
+    enabled,
     refetchInterval: 30000,
     refetchIntervalInBackground: true,
     staleTime: 10000,
@@ -43,17 +43,17 @@ export const useTaskNotifications = () => {
   }, [queryClient]);
 
   const markAsRead = useCallback(async (id: number) => {
-    await markTaskNotificationAsRead(id);
+    await markNotificationAsRead(id);
     await refresh();
   }, [refresh]);
 
   const markAllAsRead = useCallback(async () => {
-    await markAllTaskNotificationsAsRead();
+    await markAllNotificationsAsRead();
     await refresh();
   }, [refresh]);
 
   const removeNotification = useCallback(async (id: number) => {
-    await deleteTaskNotification(id);
+    await deleteNotification(id);
     await refresh();
   }, [refresh]);
 

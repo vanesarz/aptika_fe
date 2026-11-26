@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   User,
@@ -14,6 +14,7 @@ import {
   BarChart3,
   Cloud,
   CheckCircle2,
+  CircleAlert,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { login } from "@/services/api";
@@ -26,14 +27,27 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [invalidFields, setInvalidFields] = useState({ username: false, password: false });
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const usernameMissing = !email.trim();
+    const passwordMissing = !password;
+    if (usernameMissing || passwordMissing) {
+      setInvalidFields({ username: usernameMissing, password: passwordMissing });
+      setError("");
+      (usernameMissing ? usernameRef : passwordRef).current?.focus();
+      return;
+    }
+
+    setInvalidFields({ username: false, password: false });
     setError("");
     setLoading(true);
 
     try {
-      const data: any = await login(email, password);
+      const data: any = await login(email.trim(), password);
       const token =
         data.token ||
         data.access_token ||
@@ -156,58 +170,82 @@ export default function LoginPage() {
           </div>
 
           {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form noValidate onSubmit={handleLogin} className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-semibold animate-in fade-in">
-                {error}
+              <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm font-medium text-rose-800 animate-in fade-in">
+                <CircleAlert size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{error}</span>
               </div>
             )}
 
             {/* Username/Email Input */}
-            <div className="border border-slate-200 focus-within:border-blue-600 rounded-2xl p-2.5 px-3.5 flex items-center gap-3 bg-slate-50/50 transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100">
-              <div className="w-9 h-9 rounded-xl bg-blue-50/80 flex items-center justify-center text-blue-600 flex-shrink-0">
-                <User size={18} />
+            <div>
+              <div className={`rounded-2xl border p-2.5 px-3.5 flex items-center gap-3 transition-all focus-within:bg-white focus-within:ring-2 ${invalidFields.username ? "border-rose-300 bg-rose-50/50 focus-within:border-rose-400 focus-within:ring-rose-100" : "border-slate-200 bg-slate-50/50 focus-within:border-blue-600 focus-within:ring-blue-100"}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${invalidFields.username ? "bg-rose-100 text-rose-600" : "bg-blue-50/80 text-blue-600"}`}>
+                  <User size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="login-username" className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
+                    Username
+                  </label>
+                  <input
+                    ref={usernameRef}
+                    id="login-username"
+                    type="text"
+                    placeholder="Masukkan username atau email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError("");
+                      setInvalidFields(current => ({ ...current, username: false }));
+                    }}
+                    aria-invalid={invalidFields.username}
+                    aria-describedby={invalidFields.username ? "login-username-error" : undefined}
+                    required
+                    className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 font-medium outline-none pt-0.5"
+                  />
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  placeholder="Masukkan username atau email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 font-medium outline-none pt-0.5"
-                />
-              </div>
+              {invalidFields.username && <p id="login-username-error" role="alert" className="mt-1.5 pl-2 text-xs font-medium text-rose-700">Username/email harus diisi.</p>}
             </div>
 
             {/* Password Input */}
-            <div className="border border-slate-200 focus-within:border-blue-600 rounded-2xl p-2.5 px-3.5 flex items-center gap-3 bg-slate-50/50 transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100">
-              <div className="w-9 h-9 rounded-xl bg-blue-50/80 flex items-center justify-center text-blue-600 flex-shrink-0">
-                <Lock size={18} />
+            <div>
+              <div className={`rounded-2xl border p-2.5 px-3.5 flex items-center gap-3 transition-all focus-within:bg-white focus-within:ring-2 ${invalidFields.password ? "border-rose-300 bg-rose-50/50 focus-within:border-rose-400 focus-within:ring-rose-100" : "border-slate-200 bg-slate-50/50 focus-within:border-blue-600 focus-within:ring-blue-100"}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${invalidFields.password ? "bg-rose-100 text-rose-600" : "bg-blue-50/80 text-blue-600"}`}>
+                  <Lock size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="login-password" className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
+                    Password
+                  </label>
+                  <input
+                    ref={passwordRef}
+                    id="login-password"
+                    type={showPass ? "text" : "password"}
+                    placeholder="Masukkan password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setError("");
+                      setInvalidFields(current => ({ ...current, password: false }));
+                    }}
+                    aria-invalid={invalidFields.password}
+                    aria-describedby={invalidFields.password ? "login-password-error" : undefined}
+                    required
+                    className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 font-medium outline-none pt-0.5"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  aria-label={showPass ? "Sembunyikan password" : "Tampilkan password"}
+                  className="text-slate-400 hover:text-slate-600 p-1 flex-shrink-0"
+                >
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
-                  Password
-                </label>
-                <input
-                  type={showPass ? "text" : "password"}
-                  placeholder="Masukkan password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 font-medium outline-none pt-0.5"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="text-slate-400 hover:text-slate-600 p-1 flex-shrink-0"
-              >
-                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+              {invalidFields.password && <p id="login-password-error" role="alert" className="mt-1.5 pl-2 text-xs font-medium text-rose-700">Password harus diisi.</p>}
             </div>
 
             {/* Remember Me & Forgot Password */}

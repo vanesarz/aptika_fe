@@ -8,6 +8,7 @@ import { MagangDokumenPanel } from "./MagangDokumenPanel";
 import { MagangPenilaianPanel } from "./MagangPenilaianPanel";
 import axios from "axios";
 import { TautanDokumenMagang } from "./TautanDokumenMagang";
+import { FormValidasiMagang } from "./FormValidasiMagang";
 
 export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = "semua" }: {
   section?: "semua" | "proses" | "dokumen" | "penilaian";
@@ -79,7 +80,7 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
     {dokumen && p.nda_file && <TautanDokumenMagang label="NDA bertanda tangan" href={p.nda_file} />}
     {notice && <p role="status" className="text-sm text-blue-700">{notice}</p>}
     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-    {proses && p.status_seleksi === "menunggu" && canManage && <form className="space-y-3" onSubmit={e => { e.preventDefault(); action(() => seleksiMagang(p.id, "diterima", note, Number(mentorId), matchingMajor)); }}>
+    {proses && p.status_seleksi === "menunggu" && canManage && <FormValidasiMagang className="space-y-3" onSubmit={e => { e.preventDefault(); action(() => seleksiMagang(p.id, "diterima", note, Number(mentorId), matchingMajor)); }}>
       <label className="block text-sm">Mentor penanggung jawab<select required className={field} value={mentorId} onChange={e => setMentorId(e.target.value)}>
         <option value="">Pilih mentor</option>{options?.mentors.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
       </select></label>
@@ -89,7 +90,7 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
       <label className="block text-sm">Catatan seleksi<textarea maxLength={2000} value={note} onChange={e => setNote(e.target.value)} className={field} /></label>
       <div className="flex gap-2"><button disabled={busy || !options} className={button}>Terima peserta</button>
       <button type="button" disabled={busy} className={button} onClick={() => action(() => seleksiMagang(p.id, "ditolak", note))}>Tolak peserta</button></div>
-    </form>}
+    </FormValidasiMagang>}
     {proses && p.catatan_seleksi && <p className="text-sm">Catatan seleksi: {p.catatan_seleksi}</p>}
     {proses && p.status_seleksi === "ditolak" && canManage && <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800"><h4 className="font-bold">Pemberitahuan hasil seleksi</h4><p>Email penolakan ditujukan ke {p.email}. Catatan seleksi internal tidak disertakan.</p><button type="button" disabled={busy} className={button} onClick={() => action(() => api.post(`/magang/${p.id}/pemberitahuan-penolakan`))}>Kirim ulang email penolakan</button></div>}
     {p.status_seleksi === "diterima" && <>
@@ -101,7 +102,7 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
       </div>}
       {proses && p.user_id && canManage && <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950"><h4 className="font-bold !text-blue-950">Pemberitahuan penerimaan</h4><p>Tujuan: {p.email}. Berisi akun login, password awal, tautan login, dan petunjuk NDA. Pengiriman membutuhkan layanan email aktif; tombol ini tidak menjamin email sudah masuk inbox.</p><button className={button} disabled={busy} onClick={() => action(() => api.post(`/magang/${p.id}/pemberitahuan-penerimaan`))}>Kirim ulang email penerimaan dan petunjuk login</button></div>}
       {proses && p.pengingat && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{p.pengingat}</p>}
-      {proses && canManage && <form className="space-y-2 border-t pt-3" onSubmit={e => {
+      {proses && canManage && <FormValidasiMagang className="space-y-2 border-t pt-3" onSubmit={e => {
         e.preventDefault();
         const schedule = days.trim() ? days.split(",").map(v => Number(v.trim())) : [];
         if (schedule.some(n => !Number.isInteger(n) || n < 1 || n > 60) || new Set(schedule).size !== schedule.length) { setError("Isi hari unik antara 1–60, dipisahkan koma, atau kosongkan untuk menonaktifkan pengingat sebelum selesai."); return; }
@@ -110,7 +111,7 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
         <label className="block text-sm">Pengingat sebelum akhir periode (hari, pisahkan koma)<input value={days} onChange={e => setDays(e.target.value)} placeholder="Contoh: 14, 7 atau 3, 2" className={field} /></label>
         <p className="text-xs text-slate-600">Pengingat hanya tampil pada dashboard dan detail peserta. Belum dikirim melalui email atau WhatsApp. Atur kapan pengingat ditampilkan.</p>
         <button disabled={busy} className={button}>Simpan pengingat</button>
-      </form>}
+      </FormValidasiMagang>}
       {penilaian && <MagangPenilaianPanel
         participant={p}
         isParticipant={!!user?.is_magang && p.user_id === user.id}
@@ -123,13 +124,13 @@ export function MagangWorkflowPanel({ participant: p, onSaved, onNda, section = 
         onSaved={onSaved}
       />}
       {dokumen && <MagangDokumenPanel participant={p} isAdmin={user?.role === "admin"} canManage={canManage} busy={busy} action={action} />}
-      {dokumen && p.dinilai_at && !p.disahkan_at && user?.role === "admin" && <form className="space-y-3 border-t pt-3" onSubmit={e => { e.preventDefault(); if (!file) return; const data = new FormData(); data.append("nomor_sertifikat", number); data.append("sertifikat_file", file); action(() => sahkanMagang(p.id, data)); }}>
+      {dokumen && p.dinilai_at && !p.disahkan_at && user?.role === "admin" && <FormValidasiMagang className="space-y-3 border-t pt-3" onSubmit={e => { e.preventDefault(); if (!file) return; const data = new FormData(); data.append("nomor_sertifikat", number); data.append("sertifikat_file", file); action(() => sahkanMagang(p.id, data)); }}>
         <h4 className="font-semibold">Catat pengesahan sertifikat</h4>
         <p className="text-sm">Unggah sertifikat yang telah disahkan Kepala Dinas dan gunakan nomor resmi dinas. Pencatatan oleh admin bukan tanda tangan elektronik.</p>
         <label className="block text-sm">Nomor sertifikat<input required maxLength={255} value={number} onChange={e => setNumber(e.target.value)} className={field} /></label>
         <label className="block text-sm">Sertifikat disahkan (PDF, maks. 10 MB)<input type="file" required accept="application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} className="block w-full py-2" /></label>
         <button disabled={busy || ndaBlocks} className={button}>Simpan dokumen disahkan</button>
-      </form>}
+      </FormValidasiMagang>}
       {dokumen && p.disahkan_at && <p className="text-sm font-semibold text-green-800">Sertifikat disahkan · {p.nomor_sertifikat}</p>}
       {dokumen && p.sertifikat_file && <TautanDokumenMagang label="Sertifikat resmi" href={p.sertifikat_file} />}
     </>}
